@@ -1,6 +1,14 @@
+function main(): void {
+  const canvas = document.querySelector('#canvas') as (HTMLCanvasElement | null);
+  if (canvas === null) {
+    console.error('canvas not found');
+    return;
+  }
+  const gl = canvas.getContext('webgl');
+  if (gl === null) {
+    console.error('your browser may not support webgl');
+    return;
+  }
+}
 
-console.log('sushie');
-
-document.write("hello!");
-alert('hoge!');
-
+window.addEventListener('load', main);
