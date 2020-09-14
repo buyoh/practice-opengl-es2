@@ -1,21 +1,30 @@
 import { mat4 } from 'gl-matrix';
 
 // https://developer.mozilla.org/ja/docs/Web/API/WebGL_API/Tutorial/Adding_2D_content_to_a_WebGL_context
+// https://developer.mozilla.org/ja/docs/Web/API/WebGL_API/Tutorial/Using_shaders_to_apply_color_in_WebGL
+// https://webglfundamentals.org/webgl/lessons/ja/webgl-shaders-and-glsl.html
 
 const vertexShaderSource = `
   attribute vec4 aVertexPosition;
+  attribute vec4 aVertexColor;
 
   uniform mat4 uModelViewMatrix;
   uniform mat4 uProjectionMatrix;
 
+  varying lowp vec4 vColor;  // !!
+
   void main() {
     gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+    vColor = aVertexColor;
   }
 `;
 
 const fragmentShaderSource = `
+  varying lowp vec4 vColor;  // !!
+
   void main() {
-    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    // gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    gl_FragColor = vColor;
   }
 `;
 
@@ -23,75 +32,93 @@ export class Renderer {
 
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
+  private time: number
 
   private positionBuffer: WebGLBuffer | null;
+  private colorBuffer: WebGLBuffer | null;
   private programInfo: any;
 
   constructor(canvas: HTMLCanvasElement, gl: WebGLRenderingContext) {
     this.canvas = canvas;
     this.gl = gl;
+    this.time = 0;
 
     this.positionBuffer = null;
+    this.colorBuffer = null;
   }
 
   initialize(): boolean {
+    const gl = this.gl;
 
     // initialze shaders
-    const vertexShader = loadShader(this.gl, this.gl.VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = loadShader(this.gl, this.gl.FRAGMENT_SHADER, fragmentShaderSource);
+    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
     if (vertexShader === null || fragmentShader === null) {
       console.error('shader initialization failed');
       return false;
     }
 
     // create the shader program
-    const shaderProgram = createShaderProgram(this.gl, [vertexShader, fragmentShader]);
+    const shaderProgram = createShaderProgram(gl, [vertexShader, fragmentShader]);
     if (shaderProgram === null) {
       console.error('shaderProgram initialization failed');
       return false;
     }
 
-    // note: この構造体は何かを元にしているんだろうか？
-    // 分解したくなるが、そのままにしている
+    // Shader の attribute のロケーションを取得
     this.programInfo = {
       program: shaderProgram,
       attribLocations: {
-        vertexPosition: this.gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+        vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+        vertexColor: gl.getAttribLocation(shaderProgram, 'aVertexColor'),
       },
       uniformLocations: {
-        projectionMatrix: this.gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-        modelViewMatrix: this.gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
+        projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
+        modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
       },
     };
 
-    // Create a buffer for the square's positions.
-    // Select the positionBuffer as the one to apply buffer
-    // operations to from here out.
+    {
+      // Create a buffer for the square's positions.
+      // Select the positionBuffer as the one to apply buffer
+      // operations to from here out.
 
-    this.positionBuffer = this.gl.createBuffer();
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
+      this.positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
 
-    // Now create an array of positions for the square.
+      // Now create an array of positions for the square.
 
-    const positions = [
-      -1.0, 1.0,
-      1.0, 1.0,
-      -1.0, -1.0,
-      1.0, -1.0,
-    ];
+      const positions = [
+        -1.0, 1.0,
+        1.0, 1.0,
+        -1.0, -1.0,
+        1.0, -1.0,
+      ];
 
-    // Now pass the list of positions into WebGL to build the
-    // shape. We do this by creating a Float32Array from the
-    // JavaScript array, then use it to fill the current buffer.
+      // Now pass the list of positions into WebGL to build the
+      // shape. We do this by creating a Float32Array from the
+      // JavaScript array, then use it to fill the current buffer.
 
-    this.gl.bufferData(this.gl.ARRAY_BUFFER,
-      new Float32Array(positions),
-      this.gl.STATIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER,
+        new Float32Array(positions),
+        gl.STATIC_DRAW);
+    }
+    {
+      const colors = [
+        1.0, 1.0, 1.0, 1.0,    // 白
+        1.0, 0.0, 0.0, 1.0,    // 赤
+        0.0, 1.0, 0.0, 1.0,    // 緑
+        0.0, 0.0, 1.0, 1.0     // 青
+      ];
 
+      this.colorBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+    }
     return true;
   }
 
-  draw(): void {
+  draw(deltaTime: number): void {
     if (this.positionBuffer === null || this.programInfo === null) {
       console.warn('it may not initialize app');
       return;
@@ -139,6 +166,13 @@ export class Renderer {
       modelViewMatrix,     // matrix to translate
       [-0.0, 0.0, -6.0]);  // amount to translate
 
+    mat4.rotateZ(modelViewMatrix,  // destination matrix
+      modelViewMatrix,  // matrix to rotate
+      this.time * 1.2);   // amount to rotate in radians
+    mat4.rotateX(modelViewMatrix,  // destination matrix
+      modelViewMatrix,  // matrix to rotate
+      this.time);   // amount to rotate in radians
+
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
     {
@@ -158,6 +192,24 @@ export class Renderer {
         offset);
       gl.enableVertexAttribArray(
         this.programInfo.attribLocations.vertexPosition);
+    }
+
+    {
+      const numComponents = 4;
+      const type = gl.FLOAT;
+      const normalize = false;
+      const stride = 0;
+      const offset = 0;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
+      gl.vertexAttribPointer(
+        this.programInfo.attribLocations.vertexColor,
+        numComponents,
+        type,
+        normalize,
+        stride,
+        offset);
+      gl.enableVertexAttribArray(
+        this.programInfo.attribLocations.vertexColor);
     }
 
     // Tell WebGL to use our program when drawing
@@ -180,6 +232,8 @@ export class Renderer {
       const vertexCount = 4;
       gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
     }
+
+    this.time += deltaTime;
   }
 }
 
