@@ -1,6 +1,8 @@
 import { Renderer } from "./renderer";
 
-function main(canvas: HTMLCanvasElement, gl: WebGLRenderingContext): void {
+let running = false;
+
+function start(canvas: HTMLCanvasElement, gl: WebGLRenderingContext): void {
   const r = new Renderer(canvas, gl);
   r.initialize();
 
@@ -8,10 +10,16 @@ function main(canvas: HTMLCanvasElement, gl: WebGLRenderingContext): void {
   const render = (now: number) => {
     const delta = last ? now - last : 0;
     r.draw(delta / 1000);
-    requestAnimationFrame(render);
+    if (running)
+      requestAnimationFrame(render);
     last = now;
   }
+  running = true;
   requestAnimationFrame(render);
 }
 
-export default main;
+function stop() {
+  running = false;
+}
+
+export default { start, stop };
