@@ -1,4 +1,5 @@
 import Sample1 from './sample1/main';
+import Sample2 from './sample2/main';
 
 interface Sample {
   start(canvas: HTMLCanvasElement, gl: WebGLRenderingContext): void
@@ -6,7 +7,8 @@ interface Sample {
 }
 
 const samples: { [i: string]: Sample | null } = {
-  sample1: Sample1
+  sample1: Sample1,
+  sample2: Sample2
 };
 const defaultSelectedSample = 'sample1';
 
