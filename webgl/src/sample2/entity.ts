@@ -1,20 +1,21 @@
-import { vec3 } from 'gl-matrix';
-
-export type Shape = { vertices: Array<vec3>, indices: Array<[number, number, number]> };
+import { quat, vec3 } from 'gl-matrix';
 
 export class Entity {
-  private shape_: Shape;
+  shapeIndex: number;
   private position_: vec3;
-  constructor(shape: Shape, position: vec3) {
-    this.shape_ = shape;
-    this.position_ = position;
-  }
+  private rotation_: quat;
 
-  get shape(): Shape {
-    return this.shape_;
+  constructor(shapeIndex: number, position: vec3 = vec3.create(), rotation: quat = quat.create()) {
+    this.shapeIndex = shapeIndex;
+    this.position_ = position;
+    this.rotation_ = rotation;
   }
 
   get position(): vec3 {
     return this.position_;
+  }
+
+  get rotation(): quat {
+    return this.rotation_;
   }
 }

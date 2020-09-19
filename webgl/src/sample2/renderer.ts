@@ -1,5 +1,6 @@
-import { mat4, vec3 } from 'gl-matrix';
-import { Entity, Shape } from './entity';
+import { mat4 } from 'gl-matrix';
+import { Entity } from './entity';
+import { IndexRange, ShapeList } from './shape';
 
 
 const vertexShaderSource = `
@@ -30,10 +31,11 @@ export class Renderer {
 
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
-  private time: number
 
   private entities: Array<Entity>
-  private entityShapeBuffer: Array<{ vertices: WebGLBuffer, indices: WebGLBuffer }>
+  private verticesBuffer: WebGLBuffer | null;
+  private indicesBuffer: WebGLBuffer | null;
+  private indexRanges: ReadonlyArray<IndexRange>
 
   // private colorBuffer: WebGLBuffer | null
   private programInfo: any
@@ -41,31 +43,28 @@ export class Renderer {
   constructor(canvas: HTMLCanvasElement, gl: WebGLRenderingContext) {
     this.canvas = canvas;
     this.gl = gl;
-    this.time = 0;
 
     this.entities = [];
-    this.entityShapeBuffer = [];
+    this.verticesBuffer = null;
+    this.indicesBuffer = null;
+    this.indexRanges = [];
 
     // this.colorBuffer = null;
   }
 
-  registerEntity(shape: Shape, position: vec3): number {
+  registerEntity(entity: Entity): number {
     const i = this.entities.length;
-    const buffers = createPositionBufferOfShape(this.gl, shape);
-    if (buffers === null) {
-      console.error('webglbuffer construction failed');
-      return -1;  // bad workaround
-    }
-    this.entities.push(new Entity(shape, position));
-    this.entityShapeBuffer.push(buffers);
+    this.entities.push(entity);
     return i + 1;
   }
 
-  getEntityPosition(entityId: number): vec3 {
-    return this.entities[entityId - 1].position;
+  initialize(shapeList: ShapeList): boolean {
+    if (!this.setupShader()) return false;
+    if (!this.setupShapes(shapeList)) return false;
+    return true;
   }
 
-  initialize(): boolean {
+  private setupShader(): boolean {
     const gl = this.gl;
 
     // initialze shaders
@@ -95,11 +94,27 @@ export class Renderer {
         modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
       },
     };
-
     return true;
   }
 
-  draw(deltaTime: number): void {
+  private setupShapes(shapeList: ShapeList): boolean {
+    const buffers = createPositionBufferOfShape(
+      this.gl,
+      shapeList.concatenatedVertices(),
+      shapeList.concatenatedIndices());
+
+    if (buffers === null) {
+      console.error('webglbuffer construction failed');
+      return false;
+    }
+
+    this.verticesBuffer = buffers.vertices;
+    this.indicesBuffer = buffers.indices;
+    this.indexRanges = shapeList.concatenatedRanges();  // we dont need copy
+    return true;
+  }
+
+  draw(): void {
     if (this.programInfo === null) {
       console.warn('it may not initialize app');
       return;
@@ -128,31 +143,23 @@ export class Renderer {
     const zFar = 100.0;
     const projectionMatrix = mat4.create();
 
-    // note: glmatrix.js always has the first argument
-    // as the destination to receive the result.
     mat4.perspective(projectionMatrix,
       fieldOfView,
       aspect,
       zNear,
       zFar);
 
-    // Set the drawing position to the "identity" point, which is
-    // the center of the scene.
-    const modelViewMatrix = mat4.create();
-
-    // Now move the drawing position a bit to where we want to
-    // start drawing the square.
-
-    mat4.translate(modelViewMatrix,     // destination matrix
-      modelViewMatrix,     // matrix to translate
+    // camera tansformation
+    mat4.translate(projectionMatrix,     // destination matrix
+      projectionMatrix,     // matrix to translate
       [-0.0, 0.0, -6.0]);  // amount to translate
+    // mat4.rotateZ(projectionMatrix,  // destination matrix
+    //   projectionMatrix,  // matrix to rotate
+    //   this.time * 1.2);   // amount to rotate in radians
+    // mat4.rotateX(projectionMatrix,  // destination matrix
+    //   projectionMatrix,  // matrix to rotate
+    //   this.time);   // amount to rotate in radians
 
-    mat4.rotateZ(modelViewMatrix,  // destination matrix
-      modelViewMatrix,  // matrix to rotate
-      this.time * 1.2);   // amount to rotate in radians
-    mat4.rotateX(modelViewMatrix,  // destination matrix
-      modelViewMatrix,  // matrix to rotate
-      this.time);   // amount to rotate in radians
 
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
@@ -163,7 +170,7 @@ export class Renderer {
       const stride = 0;         // how many bytes to get from one set of values to the next
       // 0 = use type and numComponents above
       const offset = 0;         // how many bytes inside the buffer to start from
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.entityShapeBuffer[0].vertices);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.verticesBuffer);
       gl.vertexAttribPointer(
         this.programInfo.attribLocations.vertexPosition,
         numComponents,
@@ -175,7 +182,7 @@ export class Renderer {
         this.programInfo.attribLocations.vertexPosition);
     }
 
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.entityShapeBuffer[0].indices);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indicesBuffer);
 
     // {
     //   const numComponents = 4;
@@ -205,36 +212,44 @@ export class Renderer {
       this.programInfo.uniformLocations.projectionMatrix,
       false,
       projectionMatrix);
-    gl.uniformMatrix4fv(
-      this.programInfo.uniformLocations.modelViewMatrix,
-      false,
-      modelViewMatrix);
 
     {
-      const offset = 0;
-      const vertexCount = this.entities[0].shape.indices.length * 3;
-      // gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
-      gl.drawElements(gl.TRIANGLES, vertexCount, gl.UNSIGNED_SHORT, offset);
-    }
+      for (const entity of this.entities) {
+        const offset = this.indexRanges[entity.shapeIndex].offset;
+        const vertexCount = this.indexRanges[entity.shapeIndex].length;
+        console.log(vertexCount);
 
-    this.time += deltaTime;
+        const modelViewMatrix = mat4.create();
+        mat4.fromRotationTranslation(modelViewMatrix, entity.rotation, entity.position);
+
+        gl.uniformMatrix4fv(
+          this.programInfo.uniformLocations.modelViewMatrix,
+          false,
+          modelViewMatrix);
+
+        // gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+        gl.drawElements(gl.TRIANGLES, vertexCount, gl.UNSIGNED_SHORT, offset);
+      }
+    }
   }
 }
 
 
-function createPositionBufferOfShape(gl: WebGLRenderingContext, shape: Shape): { vertices: WebGLBuffer, indices: WebGLBuffer } | null {
+function createPositionBufferOfShape(
+  gl: WebGLRenderingContext,
+  vertices: ReadonlyArray<number>,
+  indices: ReadonlyArray<number>)
+  : { vertices: WebGLBuffer, indices: WebGLBuffer } | null {
   const verticesBuffer = gl.createBuffer();
   const indicesBuffer = gl.createBuffer();
   if (verticesBuffer === null || indicesBuffer === null)
     return null;
 
-  const vv = shape.vertices.map((v) => Array.from(v)).flat(2);
   gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vv), gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
-  const ii = shape.indices.map((v) => Array.from(v)).flat(2);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(ii), gl.STATIC_DRAW);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
   return {
     vertices: verticesBuffer,
