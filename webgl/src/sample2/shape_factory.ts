@@ -1,5 +1,5 @@
-import { vec3 } from "gl-matrix";
-import { Shape } from "./entity";
+import { vec3 } from 'gl-matrix';
+import { Shape } from './entity';
 
 export function createCube(width: number): Shape {
   const vertices = [] as Shape['vertices'];

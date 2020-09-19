@@ -1,6 +1,6 @@
-import { vec3 } from "gl-matrix";
-import { Renderer } from "./renderer";
-import { createCube } from "./shape_factory";
+import { vec3 } from 'gl-matrix';
+import { Renderer } from './renderer';
+import { createCube } from './shape_factory';
 
 let running = false;
 
@@ -18,12 +18,12 @@ function start(canvas: HTMLCanvasElement, gl: WebGLRenderingContext): void {
     if (running)
       requestAnimationFrame(render);
     last = now;
-  }
+  };
   running = true;
   requestAnimationFrame(render);
 }
 
-function stop() {
+function stop(): void {
   running = false;
 }
 

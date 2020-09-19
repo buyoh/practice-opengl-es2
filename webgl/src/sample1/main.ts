@@ -1,4 +1,4 @@
-import { Renderer } from "./renderer";
+import { Renderer } from './renderer';
 
 let running = false;
 
@@ -13,12 +13,12 @@ function start(canvas: HTMLCanvasElement, gl: WebGLRenderingContext): void {
     if (running)
       requestAnimationFrame(render);
     last = now;
-  }
+  };
   running = true;
   requestAnimationFrame(render);
 }
 
-function stop() {
+function stop(): void {
   running = false;
 }
 

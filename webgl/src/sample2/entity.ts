@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'gl-matrix';
+import { vec3 } from 'gl-matrix';
 
 export type Shape = { vertices: Array<vec3>, indices: Array<[number, number, number]> };
 
