@@ -1,8 +1,20 @@
-import { quat, vec3 } from 'gl-matrix';
+import { mat4, quat, vec3 } from 'gl-matrix';
 import { Entity } from './entity';
 import { Renderer } from './renderer';
 import { ShapeList } from './shape';
 import { createCube } from './shape_factory';
+
+function createBaseProjectionMatrix(canvas: HTMLCanvasElement): mat4 {
+  // Create a perspective matrix, a special matrix that is
+  // used to simulate the distortion of perspective in a camera.
+  const fieldOfView = 45 * Math.PI / 180;
+  const aspect = canvas.clientWidth / canvas.clientHeight;
+  const zNear = 0.1;
+  const zFar = 100.0;
+
+  return mat4.perspective(mat4.create(),
+    fieldOfView, aspect, zNear, zFar);
+}
 
 let running = false;
 
@@ -11,25 +23,40 @@ function start(canvas: HTMLCanvasElement, gl: WebGLRenderingContext): void {
   const sCube1 = shapeList.push(createCube(1));
   const sCube2 = shapeList.push(createCube(0.8));
 
-  const r = new Renderer(canvas, gl);
-  const e1 = new Entity(sCube1, vec3.fromValues(-1.5, 0, 0));
-  const e2 = new Entity(sCube2, vec3.fromValues(1.5, 0, 0));
+  const renderer = new Renderer(canvas, gl);
+  const e1 = new Entity(sCube1, vec3.fromValues(-1.5, 0, -5));
+  const e2 = new Entity(sCube2, vec3.fromValues(1.5, 0, -5));
 
-  r.initialize(shapeList);
+  renderer.initialize(shapeList);
 
-  r.registerEntity(e1);
-  r.registerEntity(e2);
+  renderer.registerEntity(e1);
+  renderer.registerEntity(e2);
 
   let last = 0;
   const render = (now: number) => {
     const delta = last ? now - last : 0;
+
+    const cameraRot = 0.001 * now;
+    const projection = createBaseProjectionMatrix(canvas);
+
+    const camera = mat4.targetTo(mat4.create(),
+      vec3.fromValues(0.0 + 5.0 * Math.cos(cameraRot), 0, -5.0 + 5.0 * Math.sin(cameraRot)),
+      vec3.fromValues(0, 0, -5.0),
+      vec3.fromValues(0, 1, 0));
+
+    mat4.mul(projection, projection, camera);
+    renderer.projectionMatrix = projection;
+
     quat.fromEuler(e1.rotation, 0, 0.06 * now, 0.1 * now);
     quat.fromEuler(e2.rotation, 0, 0.06 * now, 0.1 * now);
-    r.draw();
+
+    renderer.draw();
+
     if (running)
       requestAnimationFrame(render);
     last = now;
   };
+
   running = true;
   requestAnimationFrame(render);
 }

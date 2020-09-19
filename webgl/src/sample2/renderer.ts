@@ -32,6 +32,8 @@ export class Renderer {
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
 
+  /* public */ projectionMatrix: mat4;
+
   private entities: Array<Entity>
   private verticesBuffer: WebGLBuffer | null;
   private indicesBuffer: WebGLBuffer | null;
@@ -48,6 +50,13 @@ export class Renderer {
     this.verticesBuffer = null;
     this.indicesBuffer = null;
     this.indexRanges = [];
+
+    // set default camera
+    this.projectionMatrix = mat4.create();
+    mat4.perspective(this.projectionMatrix,
+      45 * Math.PI / 180,
+      canvas.clientWidth / canvas.clientHeight,
+      0.1, 100);
 
     // this.colorBuffer = null;
   }
@@ -130,37 +139,6 @@ export class Renderer {
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // Create a perspective matrix, a special matrix that is
-    // used to simulate the distortion of perspective in a camera.
-    // Our field of view is 45 degrees, with a width/height
-    // ratio that matches the display size of the canvas
-    // and we only want to see objects between 0.1 units
-    // and 100 units away from the camera.
-
-    const fieldOfView = 45 * Math.PI / 180;   // in radians
-    const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
-    const zNear = 0.1;
-    const zFar = 100.0;
-    const projectionMatrix = mat4.create();
-
-    mat4.perspective(projectionMatrix,
-      fieldOfView,
-      aspect,
-      zNear,
-      zFar);
-
-    // camera tansformation
-    mat4.translate(projectionMatrix,     // destination matrix
-      projectionMatrix,     // matrix to translate
-      [-0.0, 0.0, -6.0]);  // amount to translate
-    // mat4.rotateZ(projectionMatrix,  // destination matrix
-    //   projectionMatrix,  // matrix to rotate
-    //   this.time * 1.2);   // amount to rotate in radians
-    // mat4.rotateX(projectionMatrix,  // destination matrix
-    //   projectionMatrix,  // matrix to rotate
-    //   this.time);   // amount to rotate in radians
-
-
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
     {
@@ -211,7 +189,7 @@ export class Renderer {
     gl.uniformMatrix4fv(
       this.programInfo.uniformLocations.projectionMatrix,
       false,
-      projectionMatrix);
+      this.projectionMatrix);
 
     {
       for (const entity of this.entities) {
