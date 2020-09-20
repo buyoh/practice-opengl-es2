@@ -23,13 +23,13 @@ export class ShapeList {
   }
 
   push(shape: ReadonlyShape): number {
-    const i = this.vertices_.length;
-    // const n = shape.vertices.length;
+    const i = this.indices_.length;
+    const o = this.vertices_.length / 3;
     const m = shape.indices.length;  // assert m >= n
     const k = this.ranges_.length;
-    this.vertices_.push(...Array.from(shape.vertices.map(v => Array.from(v)).flat(2)));
-    this.indices_.push(...Array.from(shape.indices.flat(2)));
-    this.ranges_.push({ offset: i, length: m * 3 });
+    this.vertices_.push(...shape.vertices.map(v => Array.from(v)).flat(2));
+    this.indices_.push(...shape.indices.flat(2).map(e => e + o));
+    this.ranges_.push({ offset: i * 2, length: m * 3 });
     return k;
   }
 
