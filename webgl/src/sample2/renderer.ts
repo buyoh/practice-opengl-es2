@@ -11,13 +11,14 @@ const vertexShaderSource = `
 
   uniform mat4 uModelViewMatrix;
   uniform mat4 uProjectionMatrix;
+  uniform float uStepUniformColor;
 
   varying lowp vec4 vColor;
 
   void main() {
     gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
     // vColor = aVertexColor;
-    vColor = aVertexColor + uVertexColor;
+    vColor = (1.0 - uStepUniformColor) * aVertexColor + uStepUniformColor * uVertexColor;
   }
 `;
 
@@ -108,6 +109,7 @@ export class Renderer {
         projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
         modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
         vertexColor: gl.getUniformLocation(shaderProgram, 'uVertexColor'),
+        stepUniformColor: gl.getUniformLocation(shaderProgram, 'uStepUniformColor'),
       },
     };
     return true;
@@ -222,6 +224,7 @@ export class Renderer {
             gl.uniform4fv(
               this.programInfo.uniformLocations.vertexColor,
               new Float32Array(color));
+            gl.uniform1f(this.programInfo.uniformLocations.stepUniformColor, 1.0);
           }
         }
 
