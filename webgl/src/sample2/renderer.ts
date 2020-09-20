@@ -1,35 +1,36 @@
 import { mat4 } from 'gl-matrix';
+import { ColorList } from './color';
 import { Entity } from './entity';
-import { IndexRange, ShapeList } from './shape';
+import { ShapeList } from './shape';
 
 
 const vertexShaderSource = `
   attribute vec4 aVertexPosition;
-  // attribute vec4 aVertexColor;
+  attribute vec4 aVertexColor;  // todo
+  uniform vec4 uVertexColor;
 
   uniform mat4 uModelViewMatrix;
   uniform mat4 uProjectionMatrix;
 
-  // varying lowp vec4 vColor;  // !!
+  varying lowp vec4 vColor;
 
   void main() {
     gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
     // vColor = aVertexColor;
+    vColor = aVertexColor + uVertexColor;
   }
 `;
 
 const fragmentShaderSource = `
-  // varying lowp vec4 vColor;  // !!
+  varying lowp vec4 vColor;
 
   void main() {
-    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
-    // gl_FragColor = vColor;
+    // gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);
+    gl_FragColor = vColor;
   }
 `;
 
 export class Renderer {
-
-  private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
 
   /* public */ projectionMatrix: mat4;
@@ -37,19 +38,21 @@ export class Renderer {
   private entities: Array<Entity>
   private verticesBuffer: WebGLBuffer | null;
   private indicesBuffer: WebGLBuffer | null;
-  private indexRanges: ReadonlyArray<IndexRange>
+  // private colorBuffer: WebGLBuffer | null;
 
-  // private colorBuffer: WebGLBuffer | null
+  private shapeList: ShapeList | null;
+  private colorList: ColorList | null;
+
   private programInfo: any
 
   constructor(canvas: HTMLCanvasElement, gl: WebGLRenderingContext) {
-    this.canvas = canvas;
     this.gl = gl;
 
     this.entities = [];
     this.verticesBuffer = null;
     this.indicesBuffer = null;
-    this.indexRanges = [];
+    this.shapeList = null;
+    this.colorList = null;
 
     // set default camera
     this.projectionMatrix = mat4.create();
@@ -67,9 +70,12 @@ export class Renderer {
     return i + 1;
   }
 
-  initialize(shapeList: ShapeList): boolean {
+  initialize(shapeList: ShapeList, colorList: ColorList): boolean {
     if (!this.setupShader()) return false;
     if (!this.setupShapes(shapeList)) return false;
+    if (!this.setupColors(colorList)) return false;
+    this.shapeList = shapeList;
+    this.colorList = colorList;
     return true;
   }
 
@@ -101,6 +107,7 @@ export class Renderer {
       uniformLocations: {
         projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
         modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
+        vertexColor: gl.getUniformLocation(shaderProgram, 'uVertexColor'),
       },
     };
     return true;
@@ -119,12 +126,25 @@ export class Renderer {
 
     this.verticesBuffer = buffers.vertices;
     this.indicesBuffer = buffers.indices;
-    this.indexRanges = shapeList.concatenatedRanges();  // we dont need copy
+    return true;
+  }
+
+  private setupColors(colorList: ColorList): boolean {
+    // const gl = this.gl;
+    // {
+    //   const colors = [
+    //     0.0, 1.0, 1.0, 1.0
+    //   ];
+
+    //   this.colorBuffer = gl.createBuffer();
+    //   gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
+    //   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+    // }
     return true;
   }
 
   draw(): void {
-    if (this.programInfo === null) {
+    if (this.programInfo === null || this.shapeList === null || this.colorList === null) {
       console.warn('it may not initialize app');
       return;
     }
@@ -193,9 +213,19 @@ export class Renderer {
 
     {
       for (const entity of this.entities) {
-        const offset = this.indexRanges[entity.shapeIndex].offset;
-        const vertexCount = this.indexRanges[entity.shapeIndex].length;
-        console.log(vertexCount);
+        {  // set color
+          const colorRange = this.colorList.getRange(entity.colorIndex);
+          if (colorRange.type === 'single') {
+            const color =
+              this.colorList.concatenatedSingleColor().slice(
+                colorRange.range.offset, colorRange.range.offset + colorRange.range.length);
+            gl.uniform4fv(
+              this.programInfo.uniformLocations.vertexColor,
+              new Float32Array(color));
+          }
+        }
+
+        const shapeRange = this.shapeList.getRange(entity.shapeIndex);
 
         const modelViewMatrix = mat4.create();
         mat4.fromRotationTranslation(modelViewMatrix, entity.rotation, entity.position);
@@ -205,8 +235,7 @@ export class Renderer {
           false,
           modelViewMatrix);
 
-        // gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
-        gl.drawElements(gl.TRIANGLES, vertexCount, gl.UNSIGNED_SHORT, offset);
+        gl.drawElements(gl.TRIANGLES, shapeRange.length, gl.UNSIGNED_SHORT, shapeRange.offset);
       }
     }
   }

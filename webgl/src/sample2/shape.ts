@@ -39,10 +39,7 @@ export class ShapeList {
   concatenatedIndices(): ReadonlyArray<number> {
     return this.indices_;
   }
-  concatenatedRanges(): ReadonlyArray<IndexRange> {
-    return this.ranges_;
+  getRange(index: number): IndexRange {
+    return { ...this.ranges_[index] };
   }
-  // getRange(index: number): IndexRange {
-  //   return { ...this.ranges_[index] };
-  // }
 }

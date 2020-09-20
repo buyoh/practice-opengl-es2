@@ -1,4 +1,5 @@
 import { mat4, quat, vec3 } from 'gl-matrix';
+import { ColorList } from './color';
 import { Entity } from './entity';
 import { Renderer } from './renderer';
 import { ShapeList } from './shape';
@@ -21,16 +22,23 @@ let running = false;
 function start(canvas: HTMLCanvasElement, gl: WebGLRenderingContext): void {
   const shapeList = new ShapeList();
   const sCube1 = shapeList.push(createCube(1));
-  const sCube2 = shapeList.push(createCube(0.8));
+  const sCube2 = shapeList.push(createCube(0.2));
+  const sCube3 = shapeList.push(createCube(0.4));
+
+  const colorList = new ColorList();
+  const cCyan = colorList.pushSingleColor([0, 1, 1, 1]);
+  const cYellow = colorList.pushSingleColor([1, 1, 0, 1]);
 
   const renderer = new Renderer(canvas, gl);
-  const e1 = new Entity(sCube1, vec3.fromValues(-1.5, 0, -5));
-  const e2 = new Entity(sCube2, vec3.fromValues(1.5, 0, -5));
+  const e1 = new Entity(sCube1, cCyan, vec3.fromValues(-1.5, 0, -5));
+  const e2 = new Entity(sCube2, cCyan, vec3.fromValues(1.5, 0, -5));
+  const e3 = new Entity(sCube3, cYellow, vec3.fromValues(0, 0, -5));
 
-  renderer.initialize(shapeList);
+  renderer.initialize(shapeList, colorList);
 
   renderer.registerEntity(e1);
   renderer.registerEntity(e2);
+  renderer.registerEntity(e3);
 
   let last = 0;
   const render = (now: number) => {
