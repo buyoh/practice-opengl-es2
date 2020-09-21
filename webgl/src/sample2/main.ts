@@ -1,9 +1,8 @@
 import { mat4, quat, vec3 } from 'gl-matrix';
-import { ColorList } from './color';
 import { Entity } from './entity';
 import { Renderer } from './renderer';
-import { ShapeList } from './shape';
-import { createCube } from './shape_factory';
+import { Color, ShapeList } from './shape';
+import { createCubeShape } from './shape_factory';
 
 function createBaseProjectionMatrix(canvas: HTMLCanvasElement): mat4 {
   // Create a perspective matrix, a special matrix that is
@@ -21,35 +20,42 @@ let running = false;
 
 function start(canvas: HTMLCanvasElement, gl: WebGLRenderingContext): void {
   const shapeList = new ShapeList();
-  const sCube1 = shapeList.push(createCube(1));
-  const sCube2 = shapeList.push(createCube(0.2));
-  const sCube3 = shapeList.push(createCube(0.4));
-
-  const colorList = new ColorList();
-  const cCyan = colorList.pushSingleColor([0, 1, 1, 1]);
-  const cYellow = colorList.pushSingleColor([1, 1, 0, 1]);
+  const cubeColor1 = [
+    [0, 0, 1, 1], [0, 1, 0, 1],
+    [0, 1, 1, 1], [1, 0, 0, 1],
+    [1, 0, 1, 1], [1, 1, 0, 1],
+  ] as [Color, Color, Color, Color, Color, Color];
+  const cubeColor2 = [
+    [0.2, 0.2, 0.2, 1], [0.3, 0.3, 0.3, 1],
+    [0.4, 0.4, 0.4, 1], [0.6, 0.6, 0.6, 1],
+    [0.7, 0.7, 0.7, 1], [0.8, 0.8, 0.8, 1],
+  ] as [Color, Color, Color, Color, Color, Color];
+  const sCube1 = shapeList.push(createCubeShape(1, cubeColor1));
+  const sCube2 = shapeList.push(createCubeShape(0.2, cubeColor2));
+  const sCube3 = shapeList.push(createCubeShape(0.4, cubeColor1));
 
   const renderer = new Renderer(canvas, gl);
-  const e1 = new Entity(sCube1, cCyan, vec3.fromValues(-1.5, 0, -5));
-  const e2 = new Entity(sCube2, cCyan, vec3.fromValues(1.5, 0, -5));
-  const e3 = new Entity(sCube3, cYellow, vec3.fromValues(0, 0, -5));
+  const e1 = new Entity(sCube1, vec3.fromValues(-1.5, 0, 0));
+  const e2 = new Entity(sCube2, vec3.fromValues(1.5, 0, 0));
+  const e3 = new Entity(sCube3, vec3.fromValues(0, 0, 0));
+  const e4 = new Entity(sCube2, vec3.fromValues(0, 0, 1.5));
 
-  renderer.initialize(shapeList, colorList);
+  renderer.initialize(shapeList);
 
   renderer.registerEntity(e1);
   renderer.registerEntity(e2);
   renderer.registerEntity(e3);
+  renderer.registerEntity(e4);
 
-  let last = 0;
+  // let last = 0;
   const render = (now: number) => {
-    const delta = last ? now - last : 0;
 
     const cameraRot = 0.001 * now;
     const projection = createBaseProjectionMatrix(canvas);
 
-    const camera = mat4.targetTo(mat4.create(),
-      vec3.fromValues(0.0 + 5.0 * Math.cos(cameraRot), 0, -5.0 + 5.0 * Math.sin(cameraRot)),
-      vec3.fromValues(0, 0, -5.0),
+    const camera = mat4.lookAt(mat4.create(),
+      vec3.fromValues(5.0 * Math.cos(cameraRot), 2.0 * Math.sin(0.2 * cameraRot), 5.0 * Math.sin(cameraRot)),
+      vec3.fromValues(0, 0, 0),
       vec3.fromValues(0, 1, 0));
 
     mat4.mul(projection, projection, camera);
@@ -62,7 +68,7 @@ function start(canvas: HTMLCanvasElement, gl: WebGLRenderingContext): void {
 
     if (running)
       requestAnimationFrame(render);
-    last = now;
+    // last = now;
   };
 
   running = true;

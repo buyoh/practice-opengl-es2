@@ -1,24 +1,21 @@
 import { mat4 } from 'gl-matrix';
-import { ColorList } from './color';
 import { Entity } from './entity';
 import { ShapeList } from './shape';
 
 
 const vertexShaderSource = `
   attribute vec4 aVertexPosition;
-  attribute vec4 aVertexColor;  // todo
-  uniform vec4 uVertexColor;
+  attribute vec4 aVertexColor;
 
   uniform mat4 uModelViewMatrix;
   uniform mat4 uProjectionMatrix;
-  uniform float uStepUniformColor;
+  uniform float uStepColor;
 
   varying lowp vec4 vColor;
 
   void main() {
     gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-    // vColor = aVertexColor;
-    vColor = (1.0 - uStepUniformColor) * aVertexColor + uStepUniformColor * uVertexColor;
+    vColor = uStepColor * aVertexColor;
   }
 `;
 
@@ -39,12 +36,22 @@ export class Renderer {
   private entities: Array<Entity>
   private verticesBuffer: WebGLBuffer | null;
   private indicesBuffer: WebGLBuffer | null;
-  // private colorBuffer: WebGLBuffer | null;
+  private colorBuffer: WebGLBuffer | null;
 
   private shapeList: ShapeList | null;
-  private colorList: ColorList | null;
 
-  private programInfo: any
+  private shaderProgram: WebGLProgram | null;
+  private locations: {
+    attribute: {
+      vertexPosition: number,
+      vertexColor: number
+    },
+    uniform: {
+      projectionMatrix: WebGLUniformLocation,
+      modelViewMatrix: WebGLUniformLocation,
+      stepColor: WebGLUniformLocation
+    },
+  } | null;
 
   constructor(canvas: HTMLCanvasElement, gl: WebGLRenderingContext) {
     this.gl = gl;
@@ -52,8 +59,10 @@ export class Renderer {
     this.entities = [];
     this.verticesBuffer = null;
     this.indicesBuffer = null;
+    this.colorBuffer = null;
     this.shapeList = null;
-    this.colorList = null;
+    this.shaderProgram = null;
+    this.locations = null;
 
     // set default camera
     this.projectionMatrix = mat4.create();
@@ -62,7 +71,6 @@ export class Renderer {
       canvas.clientWidth / canvas.clientHeight,
       0.1, 100);
 
-    // this.colorBuffer = null;
   }
 
   registerEntity(entity: Entity): number {
@@ -71,12 +79,10 @@ export class Renderer {
     return i + 1;
   }
 
-  initialize(shapeList: ShapeList, colorList: ColorList): boolean {
+  initialize(shapeList: ShapeList): boolean {
     if (!this.setupShader()) return false;
     if (!this.setupShapes(shapeList)) return false;
-    if (!this.setupColors(colorList)) return false;
     this.shapeList = shapeList;
-    this.colorList = colorList;
     return true;
   }
 
@@ -92,61 +98,54 @@ export class Renderer {
     }
 
     // create the shader program
-    const shaderProgram = createShaderProgram(gl, [vertexShader, fragmentShader]);
-    if (shaderProgram === null) {
+    const program = createShaderProgram(gl, [vertexShader, fragmentShader]);
+    if (program === null) {
       console.error('shaderProgram initialization failed');
       return false;
     }
+    this.shaderProgram = program;
 
-    // Shader の attribute のロケーションを取得
-    this.programInfo = {
-      program: shaderProgram,
-      attribLocations: {
-        vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
-        vertexColor: gl.getAttribLocation(shaderProgram, 'aVertexColor'),
+    const unwrap = <T>(x: T | null): T => {
+      if (x === null) throw Error('getLocation failed');
+      return x;
+    };
+
+    this.locations = {
+      attribute: {
+        vertexPosition: gl.getAttribLocation(program, 'aVertexPosition'),
+        vertexColor: gl.getAttribLocation(program, 'aVertexColor'),
       },
-      uniformLocations: {
-        projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-        modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
-        vertexColor: gl.getUniformLocation(shaderProgram, 'uVertexColor'),
-        stepUniformColor: gl.getUniformLocation(shaderProgram, 'uStepUniformColor'),
+      uniform: {
+        projectionMatrix: unwrap(gl.getUniformLocation(program, 'uProjectionMatrix')),
+        modelViewMatrix: unwrap(gl.getUniformLocation(program, 'uModelViewMatrix')),
+        stepColor: unwrap(gl.getUniformLocation(program, 'uStepColor')),
       },
     };
+
     return true;
   }
 
   private setupShapes(shapeList: ShapeList): boolean {
-    const buffers = createPositionBufferOfShape(
-      this.gl,
-      shapeList.concatenatedVertices(),
-      shapeList.concatenatedIndices());
-
-    if (buffers === null) {
-      console.error('webglbuffer construction failed');
+    this.verticesBuffer = createBindedBuffer(this.gl, this.gl.ARRAY_BUFFER,
+      new Float32Array(shapeList.concatenatedVertices()));
+    if (this.verticesBuffer === null)
       return false;
-    }
 
-    this.verticesBuffer = buffers.vertices;
-    this.indicesBuffer = buffers.indices;
-    return true;
-  }
+    this.indicesBuffer = createBindedBuffer(this.gl, this.gl.ELEMENT_ARRAY_BUFFER,
+      new Uint16Array(shapeList.concatenatedIndices()));
+    if (this.indicesBuffer === null)
+      return false;
 
-  private setupColors(colorList: ColorList): boolean {
-    // const gl = this.gl;
-    // {
-    //   const colors = [
-    //     0.0, 1.0, 1.0, 1.0
-    //   ];
+    this.colorBuffer = createBindedBuffer(this.gl, this.gl.ARRAY_BUFFER,
+      new Float32Array(shapeList.concatenatedVertexColors()));
+    if (this.colorBuffer === null)
+      return false;
 
-    //   this.colorBuffer = gl.createBuffer();
-    //   gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
-    //   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-    // }
     return true;
   }
 
   draw(): void {
-    if (this.programInfo === null || this.shapeList === null || this.colorList === null) {
+    if (this.shapeList === null || this.locations === null) {
       console.warn('it may not initialize app');
       return;
     }
@@ -158,7 +157,6 @@ export class Renderer {
     gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
 
     // Clear the canvas before we start drawing on it.
-
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // Tell WebGL how to pull out the positions from the position
@@ -172,100 +170,67 @@ export class Renderer {
       const offset = 0;         // how many bytes inside the buffer to start from
       gl.bindBuffer(gl.ARRAY_BUFFER, this.verticesBuffer);
       gl.vertexAttribPointer(
-        this.programInfo.attribLocations.vertexPosition,
+        this.locations.attribute.vertexPosition,
         numComponents,
         type,
         normalize,
         stride,
         offset);
       gl.enableVertexAttribArray(
-        this.programInfo.attribLocations.vertexPosition);
+        this.locations.attribute.vertexPosition);
+    }
+
+    {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
+      gl.vertexAttribPointer(
+        this.locations.attribute.vertexColor,
+        4,  // numComponents
+        gl.FLOAT,
+        false,  // normalize
+        0,  // stride
+        0);
+      gl.enableVertexAttribArray(this.locations.attribute.vertexColor);
     }
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indicesBuffer);
 
-    // {
-    //   const numComponents = 4;
-    //   const type = gl.FLOAT;
-    //   const normalize = false;
-    //   const stride = 0;
-    //   const offset = 0;
-    //   gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
-    //   gl.vertexAttribPointer(
-    //     this.programInfo.attribLocations.vertexColor,
-    //     numComponents,
-    //     type,
-    //     normalize,
-    //     stride,
-    //     offset);
-    //   gl.enableVertexAttribArray(
-    //     this.programInfo.attribLocations.vertexColor);
-    // }
-
-    // Tell WebGL to use our program when drawing
-
-    gl.useProgram(this.programInfo.program);
-
-    // Set the shader uniforms
+    gl.useProgram(this.shaderProgram);
 
     gl.uniformMatrix4fv(
-      this.programInfo.uniformLocations.projectionMatrix,
+      this.locations.uniform.projectionMatrix,
       false,
       this.projectionMatrix);
+    gl.uniform1f(this.locations.uniform.stepColor, 1);
 
-    {
-      for (const entity of this.entities) {
-        {  // set color
-          const colorRange = this.colorList.getRange(entity.colorIndex);
-          if (colorRange.type === 'single') {
-            const color =
-              this.colorList.concatenatedSingleColor().slice(
-                colorRange.range.offset, colorRange.range.offset + colorRange.range.length);
-            gl.uniform4fv(
-              this.programInfo.uniformLocations.vertexColor,
-              new Float32Array(color));
-            gl.uniform1f(this.programInfo.uniformLocations.stepUniformColor, 1.0);
-          }
-        }
+    for (const entity of this.entities) {
+      const shapeRange = this.shapeList.getRange(entity.shapeIndex);
 
-        const shapeRange = this.shapeList.getRange(entity.shapeIndex);
+      const modelViewMatrix = mat4.create();
+      mat4.fromRotationTranslation(modelViewMatrix, entity.rotation, entity.position);
 
-        const modelViewMatrix = mat4.create();
-        mat4.fromRotationTranslation(modelViewMatrix, entity.rotation, entity.position);
+      gl.uniformMatrix4fv(
+        this.locations.uniform.modelViewMatrix,
+        false,
+        modelViewMatrix);
 
-        gl.uniformMatrix4fv(
-          this.programInfo.uniformLocations.modelViewMatrix,
-          false,
-          modelViewMatrix);
-
-        gl.drawElements(gl.TRIANGLES, shapeRange.length, gl.UNSIGNED_SHORT, shapeRange.offset);
-      }
+      gl.drawElements(gl.TRIANGLES, shapeRange.length, gl.UNSIGNED_SHORT, 2 * shapeRange.offset);
     }
   }
 }
 
 
-function createPositionBufferOfShape(
-  gl: WebGLRenderingContext,
-  vertices: ReadonlyArray<number>,
-  indices: ReadonlyArray<number>)
-  : { vertices: WebGLBuffer, indices: WebGLBuffer } | null {
-  const verticesBuffer = gl.createBuffer();
-  const indicesBuffer = gl.createBuffer();
-  if (verticesBuffer === null || indicesBuffer === null)
+function createBindedBuffer(gl: WebGLRenderingContext, target: number,
+  data: ArrayBufferView | ArrayBuffer, usage = gl.STATIC_DRAW): WebGLBuffer | null {
+  const buffer = gl.createBuffer();
+  if (buffer === null) {
+    console.warn('createBuffer failed');
     return null;
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-
-  return {
-    vertices: verticesBuffer,
-    indices: indicesBuffer
-  };
+  }
+  gl.bindBuffer(target, buffer);
+  gl.bufferData(target, data, usage);
+  return buffer;
 }
+
 
 function loadShader(gl: WebGLRenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
