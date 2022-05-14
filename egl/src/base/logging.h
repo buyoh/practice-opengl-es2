@@ -1,0 +1,30 @@
+#ifndef BASE_LOGGING_H_
+#define BASE_LOGGING_H_
+
+#include <iostream>
+#include <vector>
+
+// #define __FILENAME__                                                           \
+//   (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+
+struct LOG_t {
+  ~LOG_t() { std::cerr << std::endl; }
+};
+#define VLOG(_verbose)                                                         \
+  (LOG_t(), std::cerr << "F: " << __FILE__ << 'L' << __LINE__ << ": ")
+#define LOG(_verbose) (LOG_t(), std::cerr)
+
+template <typename T>
+static std::ostream &operator<<(std::ostream &o, const std::vector<T> &v) {
+  o << "[ ";
+  for (const auto &e : v)
+    o << e << ' ';
+  return o << ']';
+}
+template <typename T1, typename T2>
+inline std::ostream &operator<<(std::ostream &o, const std::pair<T1, T2> p) {
+  o << '(' << p.first << ':' << p.second << ')';
+  return o;
+}
+
+#endif // BASE_LOGGING_H_
