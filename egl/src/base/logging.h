@@ -12,7 +12,8 @@ struct LOG_t {
 };
 #define VLOG(_verbose)                                                         \
   (LOG_t(), std::cerr << "F: " << __FILE__ << 'L' << __LINE__ << ": ")
-#define LOG(_verbose) (LOG_t(), std::cerr)
+#define LOG_E (LOG_t(), std::cerr << "Error: ")
+#define LOG_W (LOG_t(), std::cerr << "Warning: ")
 
 template <typename T>
 static std::ostream &operator<<(std::ostream &o, const std::vector<T> &v) {
