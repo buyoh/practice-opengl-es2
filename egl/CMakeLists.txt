@@ -13,11 +13,16 @@ list(APPEND SOURCES
     src/app/app.cpp
     src/egl/aegl.cpp
     src/gles2/shader.cpp
+    src/gles2/texture.cpp
+    src/gles2/utils.cpp
     src/window/awindow_x11.cpp
 )
 
 # MACOSX_BUNDLE WIN32 ? These are out of target
 add_executable(app-main ${SOURCES})
+
+target_compile_options(app-main PUBLIC -O2 -Wall)
+target_compile_options(app-main PUBLIC -g)
 
 # list(APPEND EXTRA_LIBS
 #     "-lGLESv2 -lEGL -lX11"
