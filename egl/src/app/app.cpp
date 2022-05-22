@@ -34,12 +34,18 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
         }
     )";
 
-  GLuint program = createProgram(vshader, fshader);
+  GlES2ShaderProgram shader_program;
+  if (!shader_program.initialize(vshader, fshader)) {
+    return;
+  }
+  GLuint program = shader_program.program();
   glUseProgram(program);
+
   const GLfloat vertices[] = {0.0f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f};
   GLint gvPositionHandle = glGetAttribLocation(program, "vPosition");
   glEnableVertexAttribArray(gvPositionHandle);
   GLint gmRotationHandle = glGetUniformLocation(program, "mRotation");
+
   int degree = 0;
   while (true) {
     const GLfloat matrix[] = {static_cast<GLfloat>(cos(degree2radian(degree))),
@@ -70,7 +76,6 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
     degree = (degree + 1) % 360;
     usleep(16600);
   }
-  deleteShaderProgram(program);
 }
 
 } // namespace App

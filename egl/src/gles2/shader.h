@@ -5,39 +5,17 @@
 
 #include "base/logging.h"
 
-GLuint loadShader(GLenum shaderType, const char *source) {
-  GLuint shader = glCreateShader(shaderType);
-  glShaderSource(shader, 1, &source, nullptr);
-  glCompileShader(shader);
-  GLint compiled = GL_FALSE;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
-  if (compiled == GL_FALSE) {
-    LOG_E << "glCompileShader";
-    exit(2);
-  }
-  return shader;
-}
+class GlES2ShaderProgram {
 
-GLuint createProgram(const char *vshader, const char *fshader) {
-  GLuint vertexShader = loadShader(GL_VERTEX_SHADER, vshader);
-  GLuint fragShader = loadShader(GL_FRAGMENT_SHADER, fshader);
-  GLuint program = glCreateProgram();
-  glAttachShader(program, vertexShader);
-  glAttachShader(program, fragShader);
-  glLinkProgram(program);
-  GLint linkStatus = GL_FALSE;
-  glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
-  if (linkStatus == GL_FALSE) {
-    LOG_E << "glLinkProgram";
-    exit(2);
-  }
-  glDeleteShader(vertexShader);
-  glDeleteShader(fragShader);
-  return program;
-}
+public:
+  GlES2ShaderProgram() : program_(0){};
+  ~GlES2ShaderProgram();
+  bool initialize(const char *vshader, const char *fshader);
 
-void deleteShaderProgram(GLuint shaderProgram) {
-  glDeleteProgram(shaderProgram);
-}
+  GLuint program() const { return program_; }
+
+private:
+  GLuint program_;
+};
 
 #endif // EGL_SRC_GLES2_SHADER_H_

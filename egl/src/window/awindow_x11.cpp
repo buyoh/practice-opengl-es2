@@ -66,8 +66,8 @@ bool AWindowX11::initialize() {
   return true;
 }
 
-void *AWindowX11::getNativeDisplay() { return g_display.getXDisplay(); }
+void *AWindowX11::getNativeDisplay() const { return g_display.getXDisplay(); }
 
-void *AWindowX11::getNativeWindow() {
+void *AWindowX11::getNativeWindow() const {
   return reinterpret_cast<void *>(window_);
 }

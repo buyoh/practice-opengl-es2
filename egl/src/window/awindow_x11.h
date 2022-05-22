@@ -11,8 +11,8 @@ public:
   ~AWindowX11();
   bool initialize() override;
 
-  void *getNativeDisplay() override;
-  void *getNativeWindow() override;
+  void *getNativeDisplay() const override;
+  void *getNativeWindow() const override;
 
 private:
   Window window_ = 0;

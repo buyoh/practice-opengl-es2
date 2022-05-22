@@ -7,8 +7,8 @@ public:
   virtual bool initialize() = 0;
 
   // note: 64bit only
-  virtual void *getNativeDisplay() = 0;
-  virtual void *getNativeWindow() = 0;
+  virtual void *getNativeDisplay() const = 0;
+  virtual void *getNativeWindow() const = 0;
 
 private:
 };

@@ -12,6 +12,7 @@ list(APPEND SOURCES
     src/bin/main.cpp
     src/app/app.cpp
     src/egl/aegl.cpp
+    src/gles2/shader.cpp
     src/window/awindow_x11.cpp
 )
 

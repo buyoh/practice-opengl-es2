@@ -9,8 +9,8 @@ public:
   ~AEgl();
   bool initialize(void *eglNativeDisplay, void *eglNativeWindow);
 
-  EGLDisplay getDisplay();
-  EGLSurface getSurface();
+  EGLDisplay getDisplay() const;
+  EGLSurface getSurface() const;
 
 private:
   EGLDisplay display_;

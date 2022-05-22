@@ -1,5 +1,5 @@
 
-#include "aegl.h"
+#include "egl/aegl.h"
 #include "base/logging.h"
 
 AEgl::AEgl() {}
@@ -58,6 +58,6 @@ bool AEgl::initialize(void *nativeDisplay, void *nativeWindow) {
   return true;
 }
 
-EGLDisplay AEgl::getDisplay() { return display_; }
+EGLDisplay AEgl::getDisplay() const { return display_; }
 
-EGLSurface AEgl::getSurface() { return surface_; }
+EGLSurface AEgl::getSurface() const { return surface_; }
