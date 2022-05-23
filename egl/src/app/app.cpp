@@ -13,6 +13,7 @@
 #include <X11/Xlib.h>
 #include <iostream>
 
+#include "app/shader/shader.h"
 #include "egl/aegl.h"
 #include "gles2/shader.h"
 #include "gles2/texture.h"
@@ -22,20 +23,8 @@
 namespace App {
 
 void mainloop(EGLDisplay display, EGLSurface surface) {
-  const char *vshader = R"(
-        attribute vec4 vPosition;
-        uniform mediump mat4 mRotation;
-        void main() {
-            gl_Position = mRotation * vPosition;
-        }
-    )";
-
-  const char *fshader = R"(
-        precision mediump float;
-        void main() {
-            gl_FragColor = vec4(0.3, 0.8, 0.3, 1.0);
-        }
-    )";
+  const char *vshader = _binary_src_app_shader_a_vert_start;
+  const char *fshader = _binary_src_app_shader_a_frag_start;
 
   const char *texture_vshader = R"(
         attribute vec4 a_position;
