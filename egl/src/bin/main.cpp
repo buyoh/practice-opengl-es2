@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
 
   AEgl egl;
   if (!egl.initialize(window_x11.getNativeDisplay(),
-                      window_x11.getNativeWindow())) {
+                      window_x11.getNativeWindow(), true)) {
     return 2;
   }
 

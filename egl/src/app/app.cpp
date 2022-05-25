@@ -1,7 +1,5 @@
 // cloned from: https://qiita.com/y-tsutsu/items/1e88212b8532fc693c3c
 
-#include <GLES2/gl2.h>
-
 #include <algorithm>
 #include <iostream>
 #include <math.h>
@@ -10,8 +8,8 @@
 #define degree2radian(degree) ((degree * M_PI) / 180.0F)
 
 #include <EGL/egl.h>
+#include <GLES2/gl2.h>
 #include <X11/Xlib.h>
-#include <iostream>
 
 #include "app/shader/shader.h"
 #include "egl/aegl.h"
@@ -56,10 +54,18 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   }
   GLuint texture_program = texture_shader_program.program();
 
-  const GLfloat vertices[] = {0.0f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f};
+  const GLfloat vertices[] = {0.0f,  0.5f,  0.0f, //
+                              -0.5f, -0.5f, 0.0f, //
+                              0.5f,  -0.5f, 0.0f};
+
+  const GLfloat vertices2[] = {0.0f,  0.5f,  0.1f, //
+                               -0.5f, -0.5f, 0.1f, //
+                               0.5f,  -0.5f, 0.1f};
+
   GLint gvPositionHandle = glGetAttribLocation(program, "vPosition");
   glEnableVertexAttribArray(gvPositionHandle);
   GLint gmRotationHandle = glGetUniformLocation(program, "mRotation");
+  GLint gvColorHandle = glGetUniformLocation(program, "vColor");
 
   GLint a_position_handle = glGetAttribLocation(texture_program, "a_position");
   glEnableVertexAttribArray(a_position_handle);
@@ -79,10 +85,48 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   }
 
   GlES2Texture texture_holder = *GlES2Texture::create(); // unwrap
-  texture_holder.setBuffer(image_buffer.data());
+  texture_holder.setBuffer(image_buffer.data(), 256, 256, GL_RGBA);
+
+  // GlES2Texture depth_texture_holder = *GlES2Texture::create(); // unwrap
+  // texture_holder.setBuffer(nullptr, 256, 256, GL_DEPTH_COMPONENT);
+
+  glEnable(GL_DEPTH_TEST); // 隠面消去
+  // glDepthFunc(GL_LESS);
+
+  // glEnable(GL_CULL_FACE);
+  // glCullFace(GL_BACK);
+
+  // 透明でないものを全て描き、
+  // glDepthMask を GL_FALSE にします。
+  // 半透明なものを描き、
+  // glDepthMask を GL_TRUE に戻します。
+  // glDepthMask(GL_FALSE);
 
   int degree = 0;
   while (true) {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // glClearColor(0.25f, 0.25f, 0.5f, 1.0f);
+
+    const GLfloat aa_position[] = {
+        -0.75f, 0.0f,   //
+        -0.75f, -0.75f, //
+        0.0f,   0.0f,   //
+        0.0f,   -0.75f, //
+    };
+    const GLfloat aa_uv[] = {
+        0.0f, 0.0f, //
+        0.0f, 1.0f, //
+        1.0f, 0.0f, //
+        1.0f, 1.0f, //
+    };
+
+    glUseProgram(texture_program);
+    glUniform1i(u_texture_handle, 0);
+    glVertexAttribPointer(a_position_handle, 2, GL_FLOAT, GL_FALSE, 0,
+                          aa_position);
+    glVertexAttribPointer(a_uv_handle, 2, GL_FLOAT, GL_FALSE, 0, aa_uv);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
     const GLfloat matrix[] = {static_cast<GLfloat>(cos(degree2radian(degree))),
                               0.0f,
                               static_cast<GLfloat>(sin(degree2radian(degree))),
@@ -99,33 +143,21 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
                               0.0f,
                               0.0f,
                               1.0f};
-
-    glClearColor(0.25f, 0.25f, 0.5f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    const GLfloat aa_position[] = {
-        -0.75f, 0.75f,  //
-        -0.75f, -0.75f, //
-        0.75f,  0.75f,  //
-        0.75f,  -0.75f, //
-    };
-    const GLfloat aa_uv[] = {
-        0.0f, 0.0f, //
-        0.0f, 1.0f, //
-        1.0f, 0.0f, //
-        1.0f, 1.0f, //
-    };
-
-    glUseProgram(texture_program);
-    glUniform1i(u_texture_handle, 0);
-    glVertexAttribPointer(a_position_handle, 2, GL_FLOAT, GL_FALSE, 0,
-                          aa_position);
-    glVertexAttribPointer(a_uv_handle, 2, GL_FLOAT, GL_FALSE, 0, aa_uv);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    const GLfloat color[] = {0.3f, 0.8f, 0.3f, 1.0f};
 
     glUseProgram(program);
-    glVertexAttribPointer(gvPositionHandle, 2, GL_FLOAT, GL_FALSE, 0, vertices);
+    glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0, vertices);
     glUniformMatrix4fv(gmRotationHandle, 1, GL_FALSE, matrix);
+    glUniform4fv(gvColorHandle, 1, color);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    const GLfloat color2[] = {0.8f, 0.3f, 0.3f, 1.0f};
+
+    glUseProgram(program);
+    glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0,
+                          vertices2);
+    glUniformMatrix4fv(gmRotationHandle, 1, GL_FALSE, matrix);
+    glUniform4fv(gvColorHandle, 1, color2);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
     eglSwapBuffers(display, surface);

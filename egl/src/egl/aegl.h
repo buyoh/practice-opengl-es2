@@ -7,7 +7,8 @@ class AEgl {
 public:
   AEgl();
   ~AEgl();
-  bool initialize(void *eglNativeDisplay, void *eglNativeWindow);
+  bool initialize(void *eglNativeDisplay, void *eglNativeWindow,
+                  bool enable_depth);
 
   EGLDisplay getDisplay() const;
   EGLSurface getSurface() const;

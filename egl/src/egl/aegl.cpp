@@ -10,7 +10,8 @@ AEgl::~AEgl() {
   eglTerminate(display_);
 }
 
-bool AEgl::initialize(void *nativeDisplay, void *nativeWindow) {
+bool AEgl::initialize(void *nativeDisplay, void *nativeWindow,
+                      bool enable_depth) {
 
   display_ =
       eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(nativeDisplay));
@@ -25,8 +26,13 @@ bool AEgl::initialize(void *nativeDisplay, void *nativeWindow) {
     return false;
   }
 
-  EGLint attr[] = {EGL_BUFFER_SIZE, 16, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-                   EGL_NONE};
+  const EGLint depth_size = enable_depth ? 16 : 0;
+
+  EGLint attr[] = {EGL_BUFFER_SIZE, 16,                     //
+                   EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, //
+                   // EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+                   EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8,
+                   EGL_DEPTH_SIZE, depth_size, EGL_NONE};
   EGLConfig config = nullptr;
   EGLint numConfigs = 0;
   if (!eglChooseConfig(display_, attr, &config, 1, &numConfigs)) {

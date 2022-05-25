@@ -4,9 +4,6 @@
 #include <iostream>
 #include <vector>
 
-// #define __FILENAME__                                                           \
-//   (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-
 struct LOG_t {
   ~LOG_t() { std::cerr << std::endl; }
 };

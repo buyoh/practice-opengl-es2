@@ -12,8 +12,8 @@ public:
 
   void initialize();
 
-  void setBuffer(unsigned char *data);
-  void render();
+  void setBuffer(unsigned char *data, int frame_width, int frame_height,
+                 GLint format = GL_RGBA);
 
 private:
   GlES2Texture(GLuint texture) : texture_(texture){};
