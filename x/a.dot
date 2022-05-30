@@ -1,0 +1,125 @@
+# GraphViz graph detailing all the calls that need to be made to decode
+# hardware-accelerated video
+
+digraph VAAPI_EGL_Interop {
+    graph [fontname="Noto Sans", fontcolor="#304010", pencolor="#304010"]
+    node [fontname="Noto Sans"]
+    labelloc=top; fontsize=24;
+    label = "data and program flow of vaapi_egl_interop_example.c"
+
+    # functions
+    node [shape=oval, style=filled, fillcolor="#608020", fontcolor=white]
+    open
+    XOpenDisplay
+    vaGetDisplay
+    vaGetDisplayDRM
+    vaInitialize
+    avformat_open_input
+    avformat_find_stream_info
+    av_find_best_stream
+    avcodec_alloc_context3
+    avcodec_parameters_to_context  # omitted, makes the graph too complex
+    av_hwdevice_ctx_alloc
+    av_hwdevice_ctx_init
+    avcodec_open2
+    XCreateWindow
+    eglGetDisplay
+    eglInitialize
+    eglBindAPI
+    eglChooseConfig
+    eglCreateWindowSurface
+    eglCreateContext
+    eglMakeCurrent
+    av_read_frame
+    avcodec_send_packet
+    avcodec_receive_frame
+    glGenTextures
+    vaExportSurfaceHandle
+    vaSyncSurface
+    eglCreateImageKHR [label="2x eglCreateImageKHR"]
+    glEGLImageTargetTexture2DOES [label="2x glEGLImageTargetTexture2DOES"]
+    gl_init [label="OpenGL initialization\n(create shaders etc.)"]
+    glDrawArrays [label="draw with OpenGL"]
+
+    # data types
+    node [shape=plain, style="", fontcolor=""]
+    devnode [label="DRI Device Node"]
+    fd
+    Display
+    VADisplay
+    EGLDisplay
+    filename [label="Input File Name"]
+    AVFormatContext
+    AVCodec
+    AVCodecContext
+    AVVAAPIDeviceContext [label="AVBufferRef\n<AVVAAPIDeviceContext>"]
+    Window
+    EGLSurface
+    EGLContext
+    EGLConfig
+    egl_visual_attr [label="EGLConfig attributes"]
+    egl_context_attr [label="EGLContext attributes"]
+    gl_texture_1 [label="2x GLuint<GL_TEXTURE_2D>\n(empty)"]
+    AVPacket
+    AVFrame
+    VASurfaceID
+    VADRMPRIMESurfaceDescriptor
+    egl_image_attr [label="2x EGLImage attributes"]
+    EGLImage [label="2x EGLImage"]
+    gl_texture_2 [label="2x GLuint<GL_TEXTURE_2D>\n(with data)"]
+
+    # connections
+    devnode -> open -> fd -> vaGetDisplayDRM -> VADisplay
+    Display -> vaGetDisplay -> VADisplay
+    VADisplay -> vaInitialize
+    subgraph cluster_ffmpeg_init {
+        style=filled; bgcolor="#f0fff0"; fontsize=16; labeljust=l;
+        label = "FFmpeg initialization"
+        filename -> avformat_open_input -> AVFormatContext
+        avformat_open_input -> avformat_find_stream_info [style=invis]
+        AVFormatContext -> avformat_find_stream_info
+        avformat_find_stream_info -> av_find_best_stream [style=invis]
+        AVFormatContext -> av_find_best_stream -> AVCodec
+        AVCodec -> avcodec_alloc_context3 -> AVCodecContext
+        AVCodecContext, AVFormatContext -> avcodec_parameters_to_context
+        av_hwdevice_ctx_alloc -> AVVAAPIDeviceContext
+        VADisplay -> AVVAAPIDeviceContext [style=dashed]
+        AVVAAPIDeviceContext -> av_hwdevice_ctx_init
+        AVVAAPIDeviceContext -> AVCodecContext [style=dashed]
+        AVCodecContext -> avcodec_open2
+        avcodec_parameters_to_context -> avcodec_open2 [style=invis]
+    }
+    subgraph cluster_egl_init {
+        XOpenDisplay -> Display
+        style=filled; bgcolor="#f0fff0"; fontsize=16; labeljust=l;
+        label = "Window, EGL and OpenGL initialization"
+        Display -> XCreateWindow -> Window
+        Display -> eglGetDisplay -> EGLDisplay
+        EGLDisplay -> eglInitialize -> eglBindAPI
+        eglBindAPI -> eglChooseConfig [style=invis]
+        EGLDisplay, egl_visual_attr -> eglChooseConfig -> EGLConfig
+        EGLDisplay, EGLConfig, Window -> eglCreateWindowSurface -> EGLSurface
+        eglBindAPI -> eglCreateContext [style=invis]
+        EGLDisplay, egl_context_attr -> eglCreateContext -> EGLContext
+        EGLContext, EGLSurface -> eglMakeCurrent
+        eglMakeCurrent -> gl_init
+    }
+    subgraph cluster_main_loop {
+        style=filled; bgcolor="#f0fff0"; fontsize=16; labeljust=r;
+        label = "main loop"
+        avcodec_open2 -> avcodec_send_packet [style=invis]
+        AVFormatContext -> av_read_frame -> AVPacket
+        AVPacket, AVCodecContext -> avcodec_send_packet
+        avcodec_send_packet -> avcodec_receive_frame [style=dashed]
+        AVCodecContext -> avcodec_receive_frame -> AVFrame
+        AVFrame -> VASurfaceID [style=dashed]
+        VASurfaceID -> vaSyncSurface
+        vaSyncSurface -> vaExportSurfaceHandle [style=invis]
+        VASurfaceID -> vaExportSurfaceHandle -> VADRMPRIMESurfaceDescriptor
+        VADRMPRIMESurfaceDescriptor -> egl_image_attr [style=dashed]
+        egl_image_attr, EGLDisplay -> eglCreateImageKHR -> EGLImage
+        glGenTextures -> gl_texture_1
+        gl_texture_1, EGLImage -> glEGLImageTargetTexture2DOES -> gl_texture_2
+        gl_texture_2 -> glDrawArrays
+    }
+}

@@ -2,8 +2,18 @@
 
 https://qiita.com/y-tsutsu/items/1e88212b8532fc693c3c
 
+https://forums.raspberrypi.com/viewtopic.php?t=281296
+https://daily-tech.hatenablog.com/entry/2016/05/25/025616
 
 ```
 sudo apt install libgles2-mesa-dev libegl1-mesa-dev xorg-dev
 g++ main.cpp -o main -lGLESv2 -lEGL -lX11
+```
+
+v4l2
+
+```
+sudo modprobe v4l2loopback exclusive_caps=1
+gst-launch-1.0 -v videotestsrc ! videoconvert ! video/x-raw,format=YUY2 ! v4l2sink device=/dev/video0
+sudo modprobe -r v4l2loopback
 ```

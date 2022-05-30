@@ -12,6 +12,7 @@ list(APPEND SOURCES
     src/bin/main.cpp
     src/app/app.cpp
     src/egl/aegl.cpp
+    src/gles2/egl/dma_buffer_texture.cpp
     src/gles2/shader.cpp
     src/gles2/texture.cpp
     src/gles2/utils.cpp

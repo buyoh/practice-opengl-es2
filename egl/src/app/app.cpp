@@ -1,5 +1,6 @@
 // cloned from: https://qiita.com/y-tsutsu/items/1e88212b8532fc693c3c
 
+#include "base/logging.h"
 #include <algorithm>
 #include <iostream>
 #include <math.h>
@@ -13,10 +14,14 @@
 
 #include "app/shader/shader.h"
 #include "egl/aegl.h"
+#include "gles2/egl/dma_buffer_texture.h"
 #include "gles2/shader.h"
 #include "gles2/texture.h"
 #include "gles2/utils.h"
 #include "window/awindow_x11.h"
+
+#include <EGL/eglext.h>
+#include <GL/gl.h>
 
 namespace App {
 
@@ -34,8 +39,16 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
         }
     )";
 
+  // const char *texture_fshader = R"(
+  //       uniform sampler2D u_texture;
+  //       varying mediump vec2 v_uv;
+  //       void main() {
+  //           gl_FragColor = texture2D(u_texture, v_uv);
+  //       }
+  //   )";
   const char *texture_fshader = R"(
-        uniform sampler2D u_texture;
+        #extension GL_OES_EGL_image_external : require
+        uniform samplerExternalOES u_texture;
         varying mediump vec2 v_uv;
         void main() {
             gl_FragColor = texture2D(u_texture, v_uv);
@@ -44,12 +57,14 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
 
   GlES2ShaderProgram shader_program;
   if (!shader_program.initialize(vshader, fshader)) {
+    LOG_E << "shader_program";
     return;
   }
   GLuint program = shader_program.program();
 
   GlES2ShaderProgram texture_shader_program;
   if (!texture_shader_program.initialize(texture_vshader, texture_fshader)) {
+    LOG_E << "texture_shader_program";
     return;
   }
   GLuint texture_program = texture_shader_program.program();
@@ -84,7 +99,13 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
     }
   }
 
+  DMABufferTexture dma;
+  if (!dma.initialize(display, 1280, 720)) {
+    return;
+  }
+
   GlES2Texture texture_holder = *GlES2Texture::create(); // unwrap
+  texture_holder.initialize();
   texture_holder.setBuffer(image_buffer.data(), 256, 256, GL_RGBA);
 
   // GlES2Texture depth_texture_holder = *GlES2Texture::create(); // unwrap
@@ -121,10 +142,13 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
     };
 
     glUseProgram(texture_program);
-    glUniform1i(u_texture_handle, 0);
+    glUniform1i(u_texture_handle, 0 /* texture unit id */);
     glVertexAttribPointer(a_position_handle, 2, GL_FLOAT, GL_FALSE, 0,
                           aa_position);
     glVertexAttribPointer(a_uv_handle, 2, GL_FLOAT, GL_FALSE, 0, aa_uv);
+    // texture_holder.bindThisTexture();
+    // dma.dequeue();
+    dma.bindTexture(0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     const GLfloat matrix[] = {static_cast<GLfloat>(cos(degree2radian(degree))),
@@ -163,7 +187,10 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
     eglSwapBuffers(display, surface);
     degree = (degree + 1) % 360;
     usleep(16600);
+
+    // dma.queue();
   }
+  VLOG(0) << "done";
 }
 
 } // namespace App

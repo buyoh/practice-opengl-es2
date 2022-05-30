@@ -50,5 +50,6 @@
     "cinttypes": "cpp",
     "typeinfo": "cpp",
     "bit": "cpp"
-  }
+  },
+  "cmake.sourceDirectory": "${workspaceFolder}/egl"
 }
