@@ -30,6 +30,42 @@
 
 namespace {
 
+// TODO: MOVE;
+
+#define CASE_STR(value)                                                        \
+  case value:                                                                  \
+    return #value;
+// https://stackoverflow.com/questions/38127022/is-there-a-standard-way-to-query-egl-error-string
+const char *eglGetErrorString(EGLint error) {
+  switch (error) {
+    CASE_STR(EGL_SUCCESS)
+    CASE_STR(EGL_NOT_INITIALIZED)
+    CASE_STR(EGL_BAD_ACCESS)
+    CASE_STR(EGL_BAD_ALLOC)
+    CASE_STR(EGL_BAD_ATTRIBUTE)
+    CASE_STR(EGL_BAD_CONTEXT)
+    CASE_STR(EGL_BAD_CONFIG)
+    CASE_STR(EGL_BAD_CURRENT_SURFACE)
+    CASE_STR(EGL_BAD_DISPLAY)
+    CASE_STR(EGL_BAD_SURFACE)
+    CASE_STR(EGL_BAD_MATCH)
+    CASE_STR(EGL_BAD_PARAMETER)
+    CASE_STR(EGL_BAD_NATIVE_PIXMAP)
+    CASE_STR(EGL_BAD_NATIVE_WINDOW)
+    CASE_STR(EGL_CONTEXT_LOST)
+  default:
+    return "Unknown";
+  }
+}
+#undef CASE_STR
+bool checkEGLError() {
+  auto e = eglGetError();
+  if (e == EGL_SUCCESS)
+    return true;
+  LOG_E << "error = " << eglGetErrorString(e);
+  return false;
+}
+
 // <EGL/eglext.h>
 PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR;
 PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR;
@@ -96,7 +132,7 @@ std::optional<v4l2_format> getV4L2Format(int device_fd) {
   return format;
 }
 
-bool setV4L2Format(int device_fd, int width, int height) {
+std::optional<v4l2_format> setV4L2Format(int device_fd, int width, int height) {
   // TODO: bad interface
   struct v4l2_format format;
   memset(&format, 0, sizeof(format));
@@ -109,18 +145,18 @@ bool setV4L2Format(int device_fd, int width, int height) {
 
   if (ioctl(device_fd, VIDIOC_S_FMT, &format) < 0) {
     LOG_E << "VIDIOC_S_FMT: ioctl failed: " << strerror(errno);
-    return false;
+    return std::optional<v4l2_format>();
   }
 
   VLOG(0) << "width=" << format.fmt.pix.width
           << " height=" << format.fmt.pix.height;
 
   assert(format.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV);
-  assert(format.fmt.pix.width == width);
-  assert(format.fmt.pix.height == height);
+  // assert(format.fmt.pix.width == width);
+  // assert(format.fmt.pix.height == height);
   // TODO: feedback width / height
 
-  return true;
+  return format;
 }
 
 #if 0
@@ -266,6 +302,8 @@ std::vector<GLuint> bindTextures(EGLDisplay egl_display,
 
     EGLImageKHR image = eglCreateImageKHR(egl_display, EGL_NO_CONTEXT,
                                           EGL_LINUX_DMA_BUF_EXT, NULL, attrs);
+    assert(checkEGLError());
+    assert(image != EGL_NO_IMAGE_KHR);
 
     glBindTexture(GL_TEXTURE_EXTERNAL_OES, textures[i]);
     glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, image);
@@ -291,11 +329,14 @@ bool DMABufferTexture::initialize(EGLDisplay egl_display, int width,
 
   // TODO: check VIDEO_QUERYCAP
 
-  // if (!setV4L2Format(device_fd, width, height)) {
-  //   return false;
-  // }
+  auto may_format = setV4L2Format(device_fd, width, height);
+  if (!may_format) {
+    return false;
+  }
+  width = may_format->fmt.pix.width;
+  height = may_format->fmt.pix.height;
+
   setV4L2Format(device_fd, width, height);
-  getV4L2Format(device_fd);
 
   int buffer_count = requestV4L2Buffer(device_fd, kNumBuffers);
   if (buffer_count < 0) {

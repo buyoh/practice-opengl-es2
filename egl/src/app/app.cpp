@@ -149,6 +149,7 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
     // texture_holder.bindThisTexture();
     // dma.dequeue();
     dma.bindTexture(0);
+    // glViewport();
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     const GLfloat matrix[] = {static_cast<GLfloat>(cos(degree2radian(degree))),
@@ -173,6 +174,7 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
     glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0, vertices);
     glUniformMatrix4fv(gmRotationHandle, 1, GL_FALSE, matrix);
     glUniform4fv(gvColorHandle, 1, color);
+    // glViewport();
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
     const GLfloat color2[] = {0.8f, 0.3f, 0.3f, 1.0f};
