@@ -24,13 +24,12 @@
 namespace {
 
 std::vector<GLuint> bindTextures(EGLDisplay egl_display,
-                                 const std::vector<int> &buffer_fds, int width,
+                                 const std::vector<int>& buffer_fds,
+                                 int width,
                                  int height) {
-
   std::vector<GLuint> textures(buffer_fds.size());
   glGenTextures(buffer_fds.size(), textures.data());
   for (int i = 0; i < buffer_fds.size(); ++i) {
-
     EGLint attrs[] = {EGL_IMAGE_PRESERVED_KHR, EGL_TRUE,
                       //
                       EGL_WIDTH, width,
@@ -43,7 +42,7 @@ std::vector<GLuint> bindTextures(EGLDisplay egl_display,
                       //
                       EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
                       //
-                      EGL_DMA_BUF_PLANE0_PITCH_EXT, width,
+                      EGL_DMA_BUF_PLANE0_PITCH_EXT, width * 2,
                       //
                       EGL_NONE};
 
@@ -64,10 +63,11 @@ std::vector<GLuint> bindTextures(EGLDisplay egl_display,
   return textures;
 }
 
-} // namespace
+}  // namespace
 
 bool DMABufferTexture::initialize(EGLDisplay egl_display,
-                                  V4L2Device &v4l2_device, int width,
+                                  V4L2Device& v4l2_device,
+                                  int width,
                                   int height) {
   assert(textures_.empty());
 
@@ -105,12 +105,15 @@ bool DMABufferTexture::initialize(EGLDisplay egl_display,
     return false;
   }
 
-  for (int i = 0; i < buffer_count; ++i) {
-    v4l2_device.queueBuffer(i);
-  }
+  // for (int i = 0; i < buffer_count; ++i) {
+  //   v4l2_device.queueBuffer(i);
+  // }
 
   textures_ = bindTextures(egl_display, buffer_fds, width, height);
 
+  dmabuf_fds_ = std::move(buffer_fds);
+
+  // TODO: not here
   if (!v4l2_device.startV4L2stream()) {
     return false;
   }
@@ -122,28 +125,12 @@ void DMABufferTexture::bindTexture(int idx) const {
   glBindTexture(GL_TEXTURE_EXTERNAL_OES, textures_[idx]);
 }
 
-void DMABufferTexture::dequeue(V4L2Device &v4l2_device) const {
-
-  // int device_fd = openV4L2Device();
-  // if (device_fd < 0)
-  //   return;
-
-  // int buffer_count = textures_.size();
-
-  // for (int i = 0; i < buffer_count; ++i) {
-  //   dequeueV4L2Buffer(device_fd, i);
-  // }
+void DMABufferTexture::dequeue(V4L2Device& v4l2_device, int idx) const {
+  // TODO: check result
+  v4l2_device.dequeueBuffer(idx, dmabuf_fds_[idx]);
 }
 
-void DMABufferTexture::queue(V4L2Device &v4l2_device) const {
-
-  // int device_fd = openV4L2Device();
-  // if (device_fd < 0)
-  //   return;
-
-  // int buffer_count = textures_.size();
-
-  // for (int i = 0; i < buffer_count; ++i) {
-  //   queueV4L2Buffer(device_fd, i);
-  // }
+void DMABufferTexture::queue(V4L2Device& v4l2_device, int idx) const {
+  // TODO: check result
+  v4l2_device.queueBuffer(idx, dmabuf_fds_[idx]);
 }

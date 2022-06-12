@@ -1,11 +1,11 @@
 // cloned from: https://qiita.com/y-tsutsu/items/1e88212b8532fc693c3c
 
-#include "base/logging.h"
-#include <algorithm>
-#include <iostream>
 #include <math.h>
 #include <unistd.h>
+#include <algorithm>
+#include <iostream>
 #include <vector>
+#include "base/logging.h"
 #define degree2radian(degree) ((degree * M_PI) / 180.0F)
 
 #include <EGL/egl.h>
@@ -28,10 +28,10 @@ namespace App {
 
 // TODO: classize regarding dtor
 void mainloop(EGLDisplay display, EGLSurface surface) {
-  const char *vshader = _binary_src_app_shader_a_vert_start;
-  const char *fshader = _binary_src_app_shader_a_frag_start;
+  const char* vshader = _binary_src_app_shader_a_vert_start;
+  const char* fshader = _binary_src_app_shader_a_frag_start;
 
-  const char *texture_vshader = R"(
+  const char* texture_vshader = R"(
         attribute vec4 a_position;
         attribute vec2 a_uv;
         varying mediump vec2 v_uv;
@@ -48,7 +48,7 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   //           gl_FragColor = texture2D(u_texture, v_uv);
   //       }
   //   )";
-  const char *texture_fshader = R"(
+  const char* texture_fshader = R"(
         #extension GL_OES_EGL_image_external : require
         uniform samplerExternalOES u_texture;
         varying mediump vec2 v_uv;
@@ -71,12 +71,12 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   }
   GLuint texture_program = texture_shader_program.program();
 
-  const GLfloat vertices[] = {0.0f,  0.5f,  0.0f, //
-                              -0.5f, -0.5f, 0.0f, //
+  const GLfloat vertices[] = {0.0f,  0.5f,  0.0f,  //
+                              -0.5f, -0.5f, 0.0f,  //
                               0.5f,  -0.5f, 0.0f};
 
-  const GLfloat vertices2[] = {0.0f,  0.5f,  0.1f, //
-                               -0.5f, -0.5f, 0.1f, //
+  const GLfloat vertices2[] = {0.0f,  0.5f,  0.1f,  //
+                               -0.5f, -0.5f, 0.1f,  //
                                0.5f,  -0.5f, 0.1f};
 
   GLint gvPositionHandle = glGetAttribLocation(program, "vPosition");
@@ -109,15 +109,16 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   if (!dma.initialize(display, v4l2, 1280, 720)) {
     return;
   }
+  dma.queue(v4l2, 0);
 
-  GlES2Texture texture_holder = *GlES2Texture::create(); // unwrap
+  GlES2Texture texture_holder = *GlES2Texture::create();  // unwrap
   texture_holder.initialize();
   texture_holder.setBuffer(image_buffer.data(), 256, 256, GL_RGBA);
 
   // GlES2Texture depth_texture_holder = *GlES2Texture::create(); // unwrap
   // texture_holder.setBuffer(nullptr, 256, 256, GL_DEPTH_COMPONENT);
 
-  glEnable(GL_DEPTH_TEST); // 隠面消去
+  glEnable(GL_DEPTH_TEST);  // 隠面消去
   // glDepthFunc(GL_LESS);
 
   // glEnable(GL_CULL_FACE);
@@ -130,21 +131,21 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   // glDepthMask(GL_FALSE);
 
   int degree = 0;
-  while (true) {
+  for (int counter = 0;; ++counter) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // glClearColor(0.25f, 0.25f, 0.5f, 1.0f);
 
     const GLfloat aa_position[] = {
-        -0.75f, 0.0f,   //
-        -0.75f, -0.75f, //
-        0.0f,   0.0f,   //
-        0.0f,   -0.75f, //
+        -0.75f, 0.0f,    //
+        -0.75f, -0.75f,  //
+        0.0f,   0.0f,    //
+        0.0f,   -0.75f,  //
     };
     const GLfloat aa_uv[] = {
-        0.0f, 0.0f, //
-        0.0f, 1.0f, //
-        1.0f, 0.0f, //
-        1.0f, 1.0f, //
+        0.0f, 0.0f,  //
+        0.0f, 1.0f,  //
+        1.0f, 0.0f,  //
+        1.0f, 1.0f,  //
     };
 
     glUseProgram(texture_program);
@@ -153,8 +154,11 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
                           aa_position);
     glVertexAttribPointer(a_uv_handle, 2, GL_FLOAT, GL_FALSE, 0, aa_uv);
     // texture_holder.bindThisTexture();
-    // dma.dequeue();
-    dma.bindTexture(0);
+
+    dma.dequeue(v4l2, (counter + 1) % 2);
+    dma.queue(v4l2, (counter + 1) % 2);
+
+    dma.bindTexture(counter % 2);
     // glViewport();
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -201,4 +205,4 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   VLOG(0) << "done";
 }
 
-} // namespace App
+}  // namespace App

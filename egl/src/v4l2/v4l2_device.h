@@ -26,8 +26,8 @@ class V4L2Device {
   // return >= 0 : success (true buffer_count)
   int requestBuffer(int buffer_count);
   bool queryBuffer(int buffer_index);
-  bool queueBuffer(int buffer_index);
-  bool dequeueBuffer(int buffer_index);
+  bool queueBuffer(int buffer_index, int fd);
+  bool dequeueBuffer(int buffer_index, int fd);
 
   std::vector<int> openDmaBuf(int num_buffer);
 

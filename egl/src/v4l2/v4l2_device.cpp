@@ -114,7 +114,6 @@ int V4L2Device::requestBuffer(int buffer_count) {
 
 bool V4L2Device::queryBuffer(int buffer_index) {
   assert(isInitialized());
-#if 0
   struct v4l2_buffer buffer;
   memset(&buffer, 0, sizeof(buffer));
 
@@ -127,21 +126,18 @@ bool V4L2Device::queryBuffer(int buffer_index) {
     return false;
   }
 
+#if 0
   void *ptr = mmap(NULL, buffer.length, PROT_READ, MAP_SHARED, device_fd,
                    buffer.m.offset);
   if (mmap_p[i] == MAP_FAILED) {
     return false;
   }
   auto length = buffer.length;
-
-  // TODO:
-  return true;
-#else
-  return false;
 #endif
+  return true;
 }
 
-bool V4L2Device::queueBuffer(int buffer_index) {
+bool V4L2Device::queueBuffer(int buffer_index, int fd) {
   assert(isInitialized());
 
   struct v4l2_buffer buffer;
@@ -151,6 +147,7 @@ bool V4L2Device::queueBuffer(int buffer_index) {
   // buffer.memory = V4L2_MEMORY_DMABUF;
   buffer.memory = V4L2_MEMORY_MMAP;
   buffer.index = buffer_index;
+  buffer.m.fd = 0;
 
   if (ioctl(device_fd_, VIDIOC_QBUF, &buffer) < 0) {
     LOG_E << "VIDIOC_QBUF: ioctl failed: " << strerror(errno);
@@ -168,7 +165,7 @@ bool V4L2Device::queueBuffer(int buffer_index) {
   return true;
 }
 
-bool V4L2Device::dequeueBuffer(int buffer_index) {
+bool V4L2Device::dequeueBuffer(int buffer_index, int fd) {
   assert(isInitialized());
 
   struct v4l2_buffer buffer;
@@ -177,6 +174,7 @@ bool V4L2Device::dequeueBuffer(int buffer_index) {
   // buffer.memory = V4L2_MEMORY_DMABUF;
   buffer.memory = V4L2_MEMORY_MMAP;
   buffer.index = buffer_index;
+  buffer.m.fd = fd;
 
   if (ioctl(device_fd_, VIDIOC_DQBUF, &buffer) < 0) {
     LOG_E << "VIDIOC_DQBUF: ioctl failed: " << strerror(errno);
