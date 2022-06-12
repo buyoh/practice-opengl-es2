@@ -6,20 +6,23 @@
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 
+#include "v4l2/v4l2_device.h"
+
 class DMABufferTexture {
 public:
   DMABufferTexture() {}
   ~DMABufferTexture() = default; // TODO: release?
 
-  bool initialize(EGLDisplay egl_display, int width, int height);
+  bool initialize(EGLDisplay egl_display, V4L2Device &v4l2_device, int width,
+                  int height);
 
   const std::vector<GLuint> &textures() const { return textures_; }
 
   void bindTexture(int idx) const;
 
   // for testing // WIP
-  void dequeue() const;
-  void queue() const;
+  void dequeue(V4L2Device &v4l2_device) const;
+  void queue(V4L2Device &v4l2_device) const;
 
 private:
   std::vector<GLuint> textures_;

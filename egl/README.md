@@ -6,7 +6,7 @@ https://forums.raspberrypi.com/viewtopic.php?t=281296
 https://daily-tech.hatenablog.com/entry/2016/05/25/025616
 
 ```
-sudo apt install libgles2-mesa-dev libegl1-mesa-dev xorg-dev
+sudo apt install libgles2-mesa-dev libegl1-mesa-dev xorg-dev libv4l-dev
 g++ main.cpp -o main -lGLESv2 -lEGL -lX11
 ```
 

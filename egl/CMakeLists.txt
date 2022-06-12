@@ -12,10 +12,13 @@ list(APPEND SOURCES
     src/bin/main.cpp
     src/app/app.cpp
     src/egl/aegl.cpp
+    src/egl/utils.cpp
     src/gles2/egl/dma_buffer_texture.cpp
+    src/gles2/egl/eglext.cpp
     src/gles2/shader.cpp
     src/gles2/texture.cpp
     src/gles2/utils.cpp
+    src/v4l2/v4l2_device.cpp
     src/window/awindow_x11.cpp
 )
 

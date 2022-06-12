@@ -18,6 +18,7 @@
 #include "gles2/shader.h"
 #include "gles2/texture.h"
 #include "gles2/utils.h"
+#include "v4l2/v4l2_device.h"
 #include "window/awindow_x11.h"
 
 #include <EGL/eglext.h>
@@ -25,6 +26,7 @@
 
 namespace App {
 
+// TODO: classize regarding dtor
 void mainloop(EGLDisplay display, EGLSurface surface) {
   const char *vshader = _binary_src_app_shader_a_vert_start;
   const char *fshader = _binary_src_app_shader_a_frag_start;
@@ -99,8 +101,12 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
     }
   }
 
+  V4L2Device v4l2;
+  if (!v4l2.open("/dev/video0"))
+    return;
+
   DMABufferTexture dma;
-  if (!dma.initialize(display, 1280, 720)) {
+  if (!dma.initialize(display, v4l2, 1280, 720)) {
     return;
   }
 
