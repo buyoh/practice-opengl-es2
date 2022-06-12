@@ -39,7 +39,7 @@ void V4L2Device::close() {
   device_fd_ = -1;
 }
 
-std::optional<V4L2Device::Format> V4L2Device::getFormat() {
+std::optional<V4L2Device::Format> V4L2Device::getFormatVideoCapture() {
   assert(isInitialized());
 
   struct v4l2_format fmt;
@@ -60,7 +60,8 @@ std::optional<V4L2Device::Format> V4L2Device::getFormat() {
   return format;
 }
 
-std::optional<V4L2Device::Format> V4L2Device::setFormat(const Format& format) {
+std::optional<V4L2Device::Format> V4L2Device::setFormatVideoCapture(
+    const Format& format) {
   assert(isInitialized());
 
   struct v4l2_format fmt;
@@ -90,6 +91,38 @@ std::optional<V4L2Device::Format> V4L2Device::setFormat(const Format& format) {
   updated_format.height = fmt.fmt.pix.height;
 
   return updated_format;
+}
+
+std::optional<V4L2Device::CaptureParameter>
+V4L2Device::getParameterVideoCapture() {
+  assert(isInitialized());
+
+  struct v4l2_streamparm prm;
+  memset(&prm, 0, sizeof(prm));
+  prm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+  if (ioctl(device_fd_, VIDIOC_G_PARM, &prm) < 0) {
+    LOG_E << "VIDIOC_G_PARM: ioctl failed: " << strerror(errno);
+    return std::optional<V4L2Device::CaptureParameter>();
+  }
+
+  CaptureParameter capture_paramter;
+
+  bool is_supported_timeperframe =
+      prm.parm.capture.capability & V4L2_CAP_TIMEPERFRAME;
+  // bool highquality = prm.parm.capture.capturemode & V4L2_MODE_HIGHQUALITY;
+  if (is_supported_timeperframe) {
+    double n = prm.parm.capture.timeperframe.numerator;
+    double d = prm.parm.capture.timeperframe.denominator;
+    if (d != 0)
+      capture_paramter.time_per_frame = n / d;
+
+    VLOG(0) << "timeperframe is supported:" << n << "/" << d;
+  } else {
+    VLOG(0) << "timeperframe is not supported";
+  }
+
+  return capture_paramter;
 }
 
 int V4L2Device::requestBuffer(int buffer_count) {
@@ -214,6 +247,18 @@ bool V4L2Device::startV4L2stream() {
   int buffer_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
   if (ioctl(device_fd_, VIDIOC_STREAMON, &buffer_type) < 0) {
+    LOG_E << "VIDIOC_STREAMON: ioctl failed: " << strerror(errno);
+    return false;
+  }
+  return true;
+}
+
+bool V4L2Device::stopV4L2stream() {
+  assert(isInitialized());
+
+  int buffer_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+  if (ioctl(device_fd_, VIDIOC_STREAMOFF, &buffer_type) < 0) {
     LOG_E << "VIDIOC_STREAMON: ioctl failed: " << strerror(errno);
     return false;
   }

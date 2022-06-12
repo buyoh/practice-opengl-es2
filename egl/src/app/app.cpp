@@ -104,6 +104,7 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   V4L2Device v4l2;
   if (!v4l2.open("/dev/video0"))
     return;
+  v4l2.getParameterVideoCapture();  // TODO:
 
   DMABufferTexture dma;
   if (!dma.initialize(display, v4l2, 1280, 720)) {
@@ -202,6 +203,9 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
 
     // dma.queue();
   }
+
+  v4l2.stopV4L2stream();
+
   VLOG(0) << "done";
 }
 

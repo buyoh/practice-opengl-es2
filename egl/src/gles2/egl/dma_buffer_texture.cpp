@@ -76,7 +76,8 @@ bool DMABufferTexture::initialize(EGLDisplay egl_display,
   // TODO: check VIDEO_QUERYCAP
 
   // TODO: refactor width/height
-  auto may_format = v4l2_device.setFormat(V4L2Device::Format{width, height});
+  auto may_format =
+      v4l2_device.setFormatVideoCapture(V4L2Device::Format{width, height});
   if (!may_format) {
     return false;
   }

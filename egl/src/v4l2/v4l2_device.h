@@ -10,6 +10,9 @@ class V4L2Device {
     int width;
     int height;
   };
+  struct CaptureParameter {
+    std::optional<double> time_per_frame;
+  };
 
   V4L2Device() = default;
   ~V4L2Device();
@@ -19,8 +22,9 @@ class V4L2Device {
 
   bool isInitialized() const noexcept { return device_fd_ >= 0; }
 
-  std::optional<Format> getFormat();
-  std::optional<Format> setFormat(const Format& format);
+  std::optional<Format> getFormatVideoCapture();
+  std::optional<Format> setFormatVideoCapture(const Format& format);
+  std::optional<CaptureParameter> getParameterVideoCapture();
 
   // return -1 : error
   // return >= 0 : success (true buffer_count)
@@ -32,6 +36,7 @@ class V4L2Device {
   std::vector<int> openDmaBuf(int num_buffer);
 
   bool startV4L2stream();
+  bool stopV4L2stream();
 
  private:
   int device_fd_ = -1;
