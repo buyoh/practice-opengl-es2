@@ -11,6 +11,7 @@ include_directories(src/)
 list(APPEND SOURCES
     src/bin/main.cpp
     src/app/app.cpp
+    src/base/command_line.cpp
     src/egl/aegl.cpp
     src/egl/utils.cpp
     src/gles2/egl/dma_buffer_texture.cpp
