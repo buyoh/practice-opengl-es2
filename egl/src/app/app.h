@@ -3,9 +3,10 @@
 
 #include <EGL/egl.h>
 
-namespace App {
+class AppMain {
+ public:
+  AppMain() {}
+  void startMainLoop(EGLDisplay display, EGLSurface surface);
+};
 
-void mainloop(EGLDisplay display, EGLSurface surface);
-}
-
-#endif // EGL_SRC_APP_APP_H_
+#endif  // EGL_SRC_APP_APP_H_

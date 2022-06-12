@@ -4,8 +4,7 @@
 #include "egl/aegl.h"
 #include "window/awindow_x11.h"
 
-int main(int argc, char *argv[]) {
-
+int main(int argc, char* argv[]) {
   AWindowX11 window_x11;
   if (!window_x11.initialize()) {
     return 2;
@@ -17,7 +16,8 @@ int main(int argc, char *argv[]) {
     return 2;
   }
 
-  App::mainloop(egl.getDisplay(), egl.getSurface());
+  AppMain app;
+  app.startMainLoop(egl.getDisplay(), egl.getSurface());
 
   std::cout << "quit" << std::endl;
 

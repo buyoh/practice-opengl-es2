@@ -6,7 +6,6 @@
 #include <iostream>
 #include <vector>
 #include "base/logging.h"
-#define degree2radian(degree) ((degree * M_PI) / 180.0F)
 
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
@@ -24,14 +23,14 @@
 #include <EGL/eglext.h>
 #include <GL/gl.h>
 
-namespace App {
+#include "app/app.h"
 
-// TODO: classize regarding dtor
-void mainloop(EGLDisplay display, EGLSurface surface) {
-  const char* vshader = _binary_src_app_shader_a_vert_start;
-  const char* fshader = _binary_src_app_shader_a_frag_start;
+namespace {
 
-  const char* texture_vshader = R"(
+const char* vshader = _binary_src_app_shader_a_vert_start;
+const char* fshader = _binary_src_app_shader_a_frag_start;
+
+const char* texture_vshader = R"(
         attribute vec4 a_position;
         attribute vec2 a_uv;
         varying mediump vec2 v_uv;
@@ -41,14 +40,14 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
         }
     )";
 
-  // const char *texture_fshader = R"(
-  //       uniform sampler2D u_texture;
-  //       varying mediump vec2 v_uv;
-  //       void main() {
-  //           gl_FragColor = texture2D(u_texture, v_uv);
-  //       }
-  //   )";
-  const char* texture_fshader = R"(
+// const char *texture_fshader = R"(
+//       uniform sampler2D u_texture;
+//       varying mediump vec2 v_uv;
+//       void main() {
+//           gl_FragColor = texture2D(u_texture, v_uv);
+//       }
+//   )";
+const char* texture_fshader = R"(
         #extension GL_OES_EGL_image_external : require
         uniform samplerExternalOES u_texture;
         varying mediump vec2 v_uv;
@@ -57,6 +56,11 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
         }
     )";
 
+}  // namespace
+
+// TODO: classize regarding dtor
+void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
+  //
   GlES2ShaderProgram shader_program;
   if (!shader_program.initialize(vshader, fshader)) {
     LOG_E << "shader_program";
@@ -71,6 +75,7 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   }
   GLuint texture_program = texture_shader_program.program();
 
+  //
   const GLfloat vertices[] = {0.0f,  0.5f,  0.0f,  //
                               -0.5f, -0.5f, 0.0f,  //
                               0.5f,  -0.5f, 0.0f};
@@ -79,6 +84,7 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
                                -0.5f, -0.5f, 0.1f,  //
                                0.5f,  -0.5f, 0.1f};
 
+  //
   GLint gvPositionHandle = glGetAttribLocation(program, "vPosition");
   glEnableVertexAttribArray(gvPositionHandle);
   GLint gmRotationHandle = glGetUniformLocation(program, "mRotation");
@@ -90,38 +96,45 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   glEnableVertexAttribArray(a_uv_handle);
   GLint u_texture_handle = glGetUniformLocation(texture_program, "u_texture");
 
-  std::vector<unsigned char> image_buffer(256 * 256 * 4);
-  std::fill(image_buffer.begin(), image_buffer.end(), 0x80);
-  for (int y = 0; y < 16; ++y) {
-    for (int x = 0; x < 64; ++x) {
-      int p = y * 256 * 4 + x * 4;
-      image_buffer[p] = 0xff;
-      image_buffer[p + 1] = 0;
-      image_buffer[p + 2] = 0;
-    }
-  }
+  //
+  // std::vector<unsigned char> image_buffer(256 * 256 * 4);
+  // std::fill(image_buffer.begin(), image_buffer.end(), 0x80);
+  // for (int y = 0; y < 16; ++y) {
+  //   for (int x = 0; x < 64; ++x) {
+  //     int p = y * 256 * 4 + x * 4;
+  //     image_buffer[p] = 0xff;
+  //     image_buffer[p + 1] = 0;
+  //     image_buffer[p + 2] = 0;
+  //   }
+  // }
 
+  //
   V4L2Device v4l2;
   if (!v4l2.open("/dev/video0"))
     return;
   v4l2.getParameterVideoCapture();  // TODO:
 
+  //
   DMABufferTexture dma;
   if (!dma.initialize(display, v4l2, 1280, 720)) {
     return;
   }
   dma.queue(v4l2, 0);
 
-  GlES2Texture texture_holder = *GlES2Texture::create();  // unwrap
-  texture_holder.initialize();
-  texture_holder.setBuffer(image_buffer.data(), 256, 256, GL_RGBA);
+  //
+  // GlES2Texture texture_holder = *GlES2Texture::create();  // unwrap
+  // texture_holder.initialize();
+  // texture_holder.setBuffer(image_buffer.data(), 256, 256, GL_RGBA);
 
+  //
   // GlES2Texture depth_texture_holder = *GlES2Texture::create(); // unwrap
   // texture_holder.setBuffer(nullptr, 256, 256, GL_DEPTH_COMPONENT);
 
-  glEnable(GL_DEPTH_TEST);  // 隠面消去
+  // 隠面消去
+  glEnable(GL_DEPTH_TEST);
   // glDepthFunc(GL_LESS);
 
+  // カリング(裏の描画を回避)
   // glEnable(GL_CULL_FACE);
   // glCullFace(GL_BACK);
 
@@ -131,11 +144,11 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
   // glDepthMask を GL_TRUE に戻します。
   // glDepthMask(GL_FALSE);
 
-  int degree = 0;
   for (int counter = 0;; ++counter) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // glClearColor(0.25f, 0.25f, 0.5f, 1.0f);
 
+    // render texture
     const GLfloat aa_position[] = {
         -0.75f, 0.0f,    //
         -0.75f, -0.75f,  //
@@ -163,17 +176,19 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
     // glViewport();
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    const GLfloat matrix[] = {static_cast<GLfloat>(cos(degree2radian(degree))),
+    // render triangle
+    double angle = M_PI * 2 * counter / 180;
+    const GLfloat matrix[] = {static_cast<GLfloat>(cos(angle)),
                               0.0f,
-                              static_cast<GLfloat>(sin(degree2radian(degree))),
+                              static_cast<GLfloat>(sin(angle)),
                               0.0f,
                               0.0f,
                               1.0f,
                               0.0f,
                               0.0f,
-                              static_cast<GLfloat>(-sin(degree2radian(degree))),
+                              static_cast<GLfloat>(-sin(angle)),
                               0.0f,
-                              static_cast<GLfloat>(cos(degree2radian(degree))),
+                              static_cast<GLfloat>(cos(angle)),
                               0.0f,
                               0.0f,
                               0.0f,
@@ -181,6 +196,7 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
                               1.0f};
     const GLfloat color[] = {0.3f, 0.8f, 0.3f, 1.0f};
 
+    // triangle 1
     glUseProgram(program);
     glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0, vertices);
     glUniformMatrix4fv(gmRotationHandle, 1, GL_FALSE, matrix);
@@ -190,6 +206,7 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
 
     const GLfloat color2[] = {0.8f, 0.3f, 0.3f, 1.0f};
 
+    // triangle 2
     glUseProgram(program);
     glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0,
                           vertices2);
@@ -198,7 +215,6 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
     eglSwapBuffers(display, surface);
-    degree = (degree + 1) % 360;
     usleep(16600);
 
     // dma.queue();
@@ -208,5 +224,3 @@ void mainloop(EGLDisplay display, EGLSurface surface) {
 
   VLOG(0) << "done";
 }
-
-}  // namespace App
