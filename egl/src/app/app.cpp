@@ -25,6 +25,8 @@
 
 #include "app/app.h"
 
+#define USE_V4L2 0
+
 namespace {
 
 const char* vshader = _binary_src_app_shader_a_vert_start;
@@ -40,13 +42,7 @@ const char* texture_vshader = R"(
         }
     )";
 
-// const char *texture_fshader = R"(
-//       uniform sampler2D u_texture;
-//       varying mediump vec2 v_uv;
-//       void main() {
-//           gl_FragColor = texture2D(u_texture, v_uv);
-//       }
-//   )";
+#if USE_V4L2
 const char* texture_fshader = R"(
         #extension GL_OES_EGL_image_external : require
         uniform samplerExternalOES u_texture;
@@ -55,6 +51,15 @@ const char* texture_fshader = R"(
             gl_FragColor = texture2D(u_texture, v_uv);
         }
     )";
+#else
+const char* texture_fshader = R"(
+      uniform sampler2D u_texture;
+      varying mediump vec2 v_uv;
+      void main() {
+          gl_FragColor = texture2D(u_texture, v_uv);
+      }
+  )";
+#endif
 
 }  // namespace
 
@@ -97,17 +102,8 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
   GLint u_texture_handle = glGetUniformLocation(texture_program, "u_texture");
 
   //
-  // std::vector<unsigned char> image_buffer(256 * 256 * 4);
-  // std::fill(image_buffer.begin(), image_buffer.end(), 0x80);
-  // for (int y = 0; y < 16; ++y) {
-  //   for (int x = 0; x < 64; ++x) {
-  //     int p = y * 256 * 4 + x * 4;
-  //     image_buffer[p] = 0xff;
-  //     image_buffer[p + 1] = 0;
-  //     image_buffer[p + 2] = 0;
-  //   }
-  // }
 
+#if USE_V4L2
   //
   V4L2Device v4l2;
   if (!v4l2.open("/dev/video0"))
@@ -120,15 +116,26 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
     return;
   }
   dma.queue(v4l2, 0);
+#else
 
-  //
-  // GlES2Texture texture_holder = *GlES2Texture::create();  // unwrap
-  // texture_holder.initialize();
-  // texture_holder.setBuffer(image_buffer.data(), 256, 256, GL_RGBA);
+  std::vector<unsigned char> image_buffer(256 * 256 * 4);
+  std::fill(image_buffer.begin(), image_buffer.end(), 0x80);
+  for (int y = 0; y < 16; ++y) {
+    for (int x = 0; x < 64; ++x) {
+      int p = y * 256 * 4 + x * 4;
+      image_buffer[p] = 0xff;
+      image_buffer[p + 1] = 0;
+      image_buffer[p + 2] = 0;
+    }
+  }
+  GlES2Texture texture_holder = *GlES2Texture::create();  // unwrap
+  texture_holder.initialize();
+  texture_holder.setBuffer(image_buffer.data(), 256, 256, GL_RGBA);
+#endif
 
   //
   // GlES2Texture depth_texture_holder = *GlES2Texture::create(); // unwrap
-  // texture_holder.setBuffer(nullptr, 256, 256, GL_DEPTH_COMPONENT);
+  // depth_texture_holder.setBuffer(nullptr, 256, 256, GL_DEPTH_COMPONENT);
 
   // 隠面消去
   glEnable(GL_DEPTH_TEST);
@@ -167,14 +174,21 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
     glVertexAttribPointer(a_position_handle, 2, GL_FLOAT, GL_FALSE, 0,
                           aa_position);
     glVertexAttribPointer(a_uv_handle, 2, GL_FLOAT, GL_FALSE, 0, aa_uv);
-    // texture_holder.bindThisTexture();
 
+#if USE_V4L2
+    // TODO: other thread
     dma.dequeue(v4l2, (counter + 1) % 2);
     dma.queue(v4l2, (counter + 1) % 2);
 
     dma.bindTexture(counter % 2);
+#else
+    texture_holder.bindThisTexture();
+#endif
     // glViewport();
+    glDisable(GL_DEPTH_TEST);
+    // Draw as 2D
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glEnable(GL_DEPTH_TEST);
 
     // render triangle
     double angle = M_PI * 2 * counter / 180;
@@ -216,11 +230,9 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
 
     eglSwapBuffers(display, surface);
     usleep(16600);
-
-    // dma.queue();
   }
-
+#if USE_V4L2
   v4l2.stopV4L2stream();
-
+#endif
   VLOG(0) << "done";
 }
