@@ -26,6 +26,7 @@
 #include "app/app.h"
 
 #define USE_V4L2 0
+#define USE_OFFSCREEN 1
 
 namespace {
 
@@ -101,6 +102,54 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
   glEnableVertexAttribArray(a_uv_handle);
   GLint u_texture_handle = glGetUniformLocation(texture_program, "u_texture");
 
+#if USE_OFFSCREEN
+  GLint defaultFrameBuffer;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFrameBuffer);
+  VLOG(0) << "default frame buffer: " << defaultFrameBuffer;
+#endif
+
+#if USE_OFFSCREEN
+  int offscreenTextureWidth = 1024;
+  int offscreenTextureHeight = 768;
+  //
+  GLuint offscreenColorTexture;  // TODO: dtor
+  glGenTextures(1, &offscreenColorTexture);
+  assert(checkGLES2Error());
+  glBindTexture(GL_TEXTURE_2D, offscreenColorTexture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, offscreenTextureWidth,
+               offscreenTextureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  assert(checkGLES2Error());
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  //
+  GLuint offscreenDepthBuffer;  // TODO: dtor
+  glGenRenderbuffers(1, &offscreenDepthBuffer);
+  assert(checkGLES2Error());
+  glBindRenderbuffer(GL_RENDERBUFFER, offscreenDepthBuffer);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
+                        offscreenTextureWidth, offscreenTextureHeight);
+  assert(checkGLES2Error());
+  //
+  GLuint offscreenFrameBuffer;  // TODO: dtor
+  glGenFramebuffers(1, &offscreenFrameBuffer);
+  assert(checkGLES2Error());
+  glBindFramebuffer(GL_FRAMEBUFFER, offscreenFrameBuffer);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         offscreenColorTexture, 0);
+  assert(checkGLES2Error());
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                            GL_RENDERBUFFER, offscreenDepthBuffer);
+  assert(checkGLES2Error());
+
+  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+  //
+  glGenTextures(1, 0);
+  glGenRenderbuffers(1, 0);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#endif
+
   //
 
 #if USE_V4L2
@@ -152,43 +201,15 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
   // glDepthMask(GL_FALSE);
 
   for (int counter = 0;; ++counter) {
+#if USE_OFFSCREEN
+    glBindFramebuffer(GL_FRAMEBUFFER, offscreenFrameBuffer);
+    glViewport(0, 0, offscreenTextureWidth, offscreenTextureHeight);
+    glClearColor(1.0f, 1.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    // glClearColor(0.25f, 0.25f, 0.5f, 1.0f);
-
-    // render texture
-    const GLfloat aa_position[] = {
-        -0.75f, 0.0f,    //
-        -0.75f, -0.75f,  //
-        0.0f,   0.0f,    //
-        0.0f,   -0.75f,  //
-    };
-    const GLfloat aa_uv[] = {
-        0.0f, 0.0f,  //
-        0.0f, 1.0f,  //
-        1.0f, 0.0f,  //
-        1.0f, 1.0f,  //
-    };
-
-    glUseProgram(texture_program);
-    glUniform1i(u_texture_handle, 0 /* texture unit id */);
-    glVertexAttribPointer(a_position_handle, 2, GL_FLOAT, GL_FALSE, 0,
-                          aa_position);
-    glVertexAttribPointer(a_uv_handle, 2, GL_FLOAT, GL_FALSE, 0, aa_uv);
-
-#if USE_V4L2
-    // TODO: other thread
-    dma.dequeue(v4l2, (counter + 1) % 2);
-    dma.queue(v4l2, (counter + 1) % 2);
-
-    dma.bindTexture(counter % 2);
-#else
-    texture_holder.bindThisTexture();
 #endif
-    // glViewport();
-    glDisable(GL_DEPTH_TEST);
-    // Draw as 2D
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glEnable(GL_DEPTH_TEST);
+    glBindFramebuffer(GL_FRAMEBUFFER, defaultFrameBuffer);
+    glClearColor(0.25f, 0.25f, 0.5f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // render triangle
     double angle = M_PI * 2 * counter / 180;
@@ -220,6 +241,9 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
 
     const GLfloat color2[] = {0.8f, 0.3f, 0.3f, 1.0f};
 
+#if USE_OFFSCREEN
+    glBindFramebuffer(GL_FRAMEBUFFER, offscreenFrameBuffer);
+#endif
     // triangle 2
     glUseProgram(program);
     glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0,
@@ -227,6 +251,48 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
     glUniformMatrix4fv(gmRotationHandle, 1, GL_FALSE, matrix);
     glUniform4fv(gvColorHandle, 1, color2);
     glDrawArrays(GL_TRIANGLES, 0, 3);
+
+#if USE_OFFSCREEN
+    glBindFramebuffer(GL_FRAMEBUFFER, defaultFrameBuffer);
+#endif
+
+    // render texture
+    const GLfloat aa_position[] = {
+        -0.75f, 0.0f,    //
+        -0.75f, -0.75f,  //
+        0.0f,   0.0f,    //
+        0.0f,   -0.75f,  //
+    };
+    const GLfloat aa_uv[] = {
+        0.0f, 0.0f,  //
+        0.0f, 1.0f,  //
+        1.0f, 0.0f,  //
+        1.0f, 1.0f,  //
+    };
+
+    glUseProgram(texture_program);
+    glUniform1i(u_texture_handle, 0 /* texture unit id */);
+    glVertexAttribPointer(a_position_handle, 2, GL_FLOAT, GL_FALSE, 0,
+                          aa_position);
+    glVertexAttribPointer(a_uv_handle, 2, GL_FLOAT, GL_FALSE, 0, aa_uv);
+
+#if USE_V4L2
+    // TODO: other thread
+    dma.dequeue(v4l2, (counter + 1) % 2);
+    dma.queue(v4l2, (counter + 1) % 2);
+
+    dma.bindTexture(counter % 2);
+#elif USE_OFFSCREEN
+    glBindTexture(GL_TEXTURE_2D, offscreenColorTexture);
+#else
+    texture_holder.bindThisTexture();
+
+#endif
+    // glViewport();
+    glDisable(GL_DEPTH_TEST);
+    // Draw as 2D
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glEnable(GL_DEPTH_TEST);
 
     eglSwapBuffers(display, surface);
     usleep(16600);
