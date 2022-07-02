@@ -27,6 +27,7 @@
 
 #define USE_V4L2 0
 #define USE_OFFSCREEN 1
+#define USE_BUFFER 1
 
 namespace {
 
@@ -89,6 +90,13 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
   const GLfloat vertices2[] = {0.0f,  0.5f,  0.1f,  //
                                -0.5f, -0.5f, 0.1f,  //
                                0.5f,  -0.5f, 0.1f};
+#if USE_BUFFER
+  // const GLfloat vertices_b[] = {0.5f,  0.5f,  0.0f,  //
+  //                               -0.5f, 0.5f,  0.0f,  //
+  //                               -0.5f, -0.5f, 0.0f,  //
+  //                               0.5f,  -0.5f, 0.0f};
+  // const GLushort indices_b[] = {0, 1, 2, 3};
+#endif
 
   //
   GLint gvPositionHandle = glGetAttribLocation(program, "vPosition");
@@ -109,6 +117,7 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
 #endif
 
 #if USE_OFFSCREEN
+  // todo: snake_case
   int offscreenTextureWidth = 1024;
   int offscreenTextureHeight = 768;
   //
@@ -148,6 +157,24 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
   glGenTextures(1, 0);
   glGenRenderbuffers(1, 0);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#endif
+#if USE_BUFFER
+  GLuint vertex_buffer;
+  glGenBuffers(1, &vertex_buffer);
+  assert(checkGLES2Error());
+  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+  // glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 12, vertices_b,
+  //              GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 9, vertices, GL_STATIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  //
+  // GLuint indices_buffer;
+  // glGenBuffers(1, &indices_buffer);
+  // assert(checkGLES2Error());
+  // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer);
+  // glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort) * 4, indices_b,
+  //              GL_STATIC_DRAW);
+  // glBindBuffer(GL_ARRAY_BUFFER, 0);
 #endif
 
   //
@@ -233,7 +260,14 @@ void AppMain::startMainLoop(EGLDisplay display, EGLSurface surface) {
 
     // triangle 1
     glUseProgram(program);
+#if USE_BUFFER
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0,
+                          reinterpret_cast<void*>(0 /* beginning index*/));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+#else
     glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0, vertices);
+#endif
     glUniformMatrix4fv(gmRotationHandle, 1, GL_FALSE, matrix);
     glUniform4fv(gvColorHandle, 1, color);
     // glViewport();
